@@ -55,7 +55,7 @@ export async function POST(request) {
         netCharge = 1.00;
         amountDue = 1.00;
         const expiry = new Date();
-        expiry.setMinutes(now.getMinutes() + 2);
+        expiry.setDate(now.getDate() + 1); // 24 hours (1 day)
         newPeriodEnd = expiry.toISOString();
       } else {
         targetRemainingValue = 30 * targetPricePerDay;
@@ -78,15 +78,14 @@ export async function POST(request) {
       const remainingTimeMs = periodEnd.getTime() - now.getTime();
 
       if (currentPlan === 'TEST' || targetPlan === 'TEST') {
-        const remainingMins = Math.max(0, remainingTimeMs / (1000 * 60));
+        remainingDays = Math.max(0, remainingTimeMs / (1000 * 60 * 60 * 24));
         currentRemainingValue = currentPlan === 'TEST' 
-          ? (remainingMins / 2.0) * 1.00 
-          : (remainingMins / (30 * 24 * 60.0)) * (30 * currentPricePerDay);
+          ? remainingDays * 1.00 
+          : remainingDays * currentPricePerDay;
         targetRemainingValue = targetPlan === 'TEST'
-          ? (remainingMins / 2.0) * 1.00
-          : (remainingMins / (30 * 24 * 60.0)) * (30 * targetPricePerDay);
+          ? remainingDays * 1.00
+          : remainingDays * targetPricePerDay;
         netCharge = targetRemainingValue - currentRemainingValue;
-        remainingDays = remainingMins / (24 * 60.0);
       } else {
         remainingDays = Math.max(0, remainingTimeMs / (1000 * 60 * 60 * 24));
         currentRemainingValue = remainingDays * currentPricePerDay;
@@ -101,9 +100,9 @@ export async function POST(request) {
         amountDue = 0;
         const credit = -netCharge;
         if (targetPlan === 'TEST') {
-          // extend by minutes
-          const extensionMins = (credit / 1.00) * 2;
-          const extendedEndDate = new Date(periodEnd.getTime() + (extensionMins * 60 * 1000));
+          // extend by days
+          extensionDays = credit / 1.00;
+          const extendedEndDate = new Date(periodEnd.getTime() + (extensionDays * 24 * 60 * 60 * 1000));
           newPeriodEnd = extendedEndDate.toISOString();
         } else {
           extensionDays = credit / targetPricePerDay;

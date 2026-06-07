@@ -65,11 +65,20 @@ export async function POST(request) {
     if (subRes.rows.length === 0) {
       // Create new subscription
       const now = new Date();
-      const expiry = new Date();
+      let expiry = new Date();
       if (targetPlan === 'TEST') {
-        expiry.setMinutes(now.getMinutes() + 2);
-      } else {
-        expiry.setDate(now.getDate() + 30);
+        // Daily billing interval (minimum supported by Cashfree recurring)
+        expiry = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+      } else if (targetPlan === 'STARTER') {
+        // Monthly billing interval
+        expiry = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
+      } else if (targetPlan === 'PRO') {
+        // Pro plan supports Monthly or Yearly depending on transaction amount
+        if (amount > 100000) { // Yearly pricing threshold
+          expiry = new Date(now.getTime() + (365 * 24 * 60 * 60 * 1000));
+        } else {
+          expiry = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
+        }
       }
       finalExpiry = expiry.toISOString();
 

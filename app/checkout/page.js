@@ -247,7 +247,7 @@ function CheckoutForm() {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Cycle Length</span>
-                  <span>{targetPlan === 'TEST' ? '2 Minutes' : '30 Days'} Period</span>
+                  <span>{targetPlan === 'TEST' ? '24 Hours' : '30 Days'} Period</span>
                 </div>
               </div>
 

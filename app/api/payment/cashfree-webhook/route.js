@@ -91,7 +91,7 @@ export async function POST(request) {
       }
 
       // Determine plan level based on price
-      // Starter = 500/day -> 15000/30 days. Pro = 1500/day -> 45000/30 days. Test = 1.00 / 2 min.
+      // Starter = 500/day -> 15000/30 days. Pro = 1500/day -> 45000/30 days. Test = 1.00 / 24 hr.
       let plan = 'PRO';
       let pricePerDay = 1500.00;
       let targetScreens = 3;
@@ -107,9 +107,22 @@ export async function POST(request) {
       }
 
       const periodStart = new Date();
-      const periodEnd = plan === 'TEST'
-        ? new Date(periodStart.getTime() + (2 * 60 * 1000)) // 2 minutes
-        : new Date(periodStart.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 days
+      let periodEnd = new Date(periodStart.getTime() + (30 * 24 * 60 * 60 * 1000)); // Default 30 days
+
+      if (plan === 'TEST') {
+        // Daily billing interval (minimum supported by Cashfree recurring)
+        periodEnd = new Date(periodStart.getTime() + (24 * 60 * 60 * 1000)); // 1 day
+      } else if (plan === 'STARTER') {
+        // Monthly billing interval
+        periodEnd = new Date(periodStart.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 days
+      } else if (plan === 'PRO') {
+        // Pro plan supports Monthly or Yearly depending on transaction amount
+        if (amount > 100000) { // Yearly pricing threshold
+          periodEnd = new Date(periodStart.getTime() + (365 * 24 * 60 * 60 * 1000)); // 365 days
+        } else {
+          periodEnd = new Date(periodStart.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 days
+        }
+      }
 
       // Update or create active subscription
       // Set any existing subscriptions to EXPIRED/CANCELLED first

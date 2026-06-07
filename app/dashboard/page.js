@@ -308,8 +308,8 @@ export default function DashboardPage() {
               <div style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '24px', width: '260px', background: '#f8fafc', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
                   <h3 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>Test Plan</h3>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, margin: '16px 0 8px' }}>₹1<span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-muted)' }}>/2 min</span></div>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>For automated renewal & webhook verification (renews every 2 minutes).</p>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, margin: '16px 0 8px' }}>₹1<span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-muted)' }}>/24 hr</span></div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>For automated renewal & webhook verification (renews every 24 hours).</p>
                 </div>
                 <Link href="/checkout?plan=test&amount=1" className="btn btn-outline btn-full" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
                   Choose Test
