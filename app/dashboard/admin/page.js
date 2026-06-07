@@ -1,0 +1,323 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useNotification } from '@/lib/NotificationContext';
+
+export default function AdminDashboardPage() {
+  const [adminUser, setAdminUser] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isActioning, setIsActioning] = useState(false);
+  const router = useRouter();
+  const { showToast } = useNotification();
+
+  // Load admin session and customers list
+  useEffect(() => {
+    async function initAdminDashboard() {
+      try {
+        // 1. Verify user is logged in & is an admin
+        const meRes = await fetch('/api/auth/me');
+        if (!meRes.ok) {
+          showToast('Session expired. Please log in.', 'error');
+          router.push('/login');
+          return;
+        }
+        const meData = await meRes.json();
+        if (!meData.user?.is_admin) {
+          showToast('Access denied: Requires super admin authorization.', 'error');
+          router.push('/dashboard');
+          return;
+        }
+        setAdminUser(meData.user);
+
+        // 2. Fetch customer registry
+        await fetchCustomers();
+      } catch (err) {
+        showToast('Error initializing dashboard workspace', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    initAdminDashboard();
+  }, [router, showToast]);
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await fetch('/api/admin/users');
+      if (!res.ok) {
+        throw new Error('Failed to retrieve user directory');
+      }
+      const data = await res.json();
+      setCustomers(data.users || []);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      if (res.ok) {
+        showToast('Logged out successfully', 'success');
+        router.push('/');
+        router.refresh();
+      }
+    } catch (err) {
+      showToast('Error logging out', 'error');
+    }
+  };
+
+  // Cancel customer plan
+  const handleCancelPlan = async (userId, userName) => {
+    if (!window.confirm(`Are you sure you want to cancel the subscription plan for ${userName}?`)) {
+      return;
+    }
+
+    setIsActioning(true);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to cancel subscription');
+      }
+
+      showToast(`Subscription plan cancelled for ${userName}`, 'success');
+      await fetchCustomers(); // reload table
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setIsActioning(false);
+    }
+  };
+
+  // Delete customer account
+  const handleDeleteUser = async (userId, userName) => {
+    const doubleConfirm = window.confirm(`⚠️ WARNING: Are you absolutely sure you want to delete user "${userName}"?\nThis will permanently delete their account, subscriptions, payments, and all connected ad boards. This action cannot be undone.`);
+    if (!doubleConfirm) return;
+
+    setIsActioning(true);
+    try {
+      const res = await fetch(`/api/admin/users?userId=${userId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete user account');
+      }
+
+      showToast(`Account deleted successfully for ${userName}`, 'success');
+      await fetchCustomers(); // reload table
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setIsActioning(false);
+    }
+  };
+
+  // Filter customers by search input
+  const filteredCustomers = customers.filter((customer) => {
+    const name = customer.name?.toLowerCase() || '';
+    const email = customer.email?.toLowerCase() || '';
+    const query = searchQuery.toLowerCase();
+    return name.includes(query) || email.includes(query);
+  });
+
+  if (isLoading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: '40px', height: '40px', border: '3px solid var(--primary-light)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s infinite linear', margin: '0 auto 16px' }}></div>
+          <p style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Connecting secure admin interface...</p>
+          <style jsx global>{`
+            @keyframes spin { to { transform: rotate(360deg); } }
+          `}</style>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dashboard-grid">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div>
+          <div style={{ marginBottom: '40px', padding: '0 8px' }}>
+            <Link href="/dashboard">
+              <h2 style={{ background: 'linear-gradient(135deg, #0b2b5c, #1e4a76)', WebkitBackgroundClip: 'text', color: 'transparent', fontSize: '1.8rem', fontWeight: 800 }}>YourCast</h2>
+            </Link>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>Super Admin System</span>
+          </div>
+
+          <nav className="sidebar-nav">
+            <Link href="/dashboard" className="sidebar-link">
+              📺 Screens Control
+            </Link>
+            <Link href="/dashboard/billing" className="sidebar-link">
+              💳 Plans & Billing
+            </Link>
+            <Link href="/dashboard/admin" className="sidebar-link active">
+              🛡️ Super Admin Portal
+            </Link>
+          </nav>
+        </div>
+
+        <button onClick={handleLogout} className="btn btn-outline" style={{ border: '1px solid var(--accent-red)', color: 'var(--accent-red)', background: 'transparent' }}>
+          🔒 Clear Session
+        </button>
+      </aside>
+
+      {/* Main Console Workspace */}
+      <main className="dashboard-content">
+        <header className="dash-header">
+          <div>
+            <h1 style={{ fontSize: '1.8rem', color: 'var(--text-dark)' }}>Super Admin Workspace</h1>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>
+              Logged in as superuser: <strong>{adminUser?.name}</strong>
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#eef4ff', padding: '8px 16px', borderRadius: '30px', border: '1px solid #cce0ff' }}>
+            <span style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }}></span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)' }}>Authorized Session</span>
+          </div>
+        </header>
+
+        {/* Info Grid */}
+        <section className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px', marginBottom: '32px' }}>
+          <div className="stat-item" style={{ background: 'white', padding: '24px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color-light)', boxShadow: 'var(--shadow-sm)' }}>
+            <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Registered Users</p>
+            <div className="stat-value">{customers.length}</div>
+          </div>
+          <div className="stat-item" style={{ background: 'white', padding: '24px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color-light)', boxShadow: 'var(--shadow-sm)' }}>
+            <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Subscriptions</p>
+            <div className="stat-value" style={{ color: 'var(--accent-green)' }}>
+              {customers.filter(c => c.subscription_plan && c.subscription_status === 'ACTIVE').length}
+            </div>
+          </div>
+          <div className="stat-item" style={{ background: 'white', padding: '24px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color-light)', boxShadow: 'var(--shadow-sm)' }}>
+            <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Active Screens</p>
+            <div className="stat-value" style={{ color: 'var(--navy-dark)' }}>
+              {customers.reduce((sum, c) => sum + parseInt(c.ad_board_count || 0), 0)}
+            </div>
+          </div>
+        </section>
+
+        {/* Customer Registry Management */}
+        <div className="dash-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '16px', flexWrap: 'wrap' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Customer Registry</h3>
+            
+            {/* Search filter input */}
+            <input
+              type="text"
+              placeholder="🔍 Search users by name or email..."
+              className="form-control"
+              style={{ maxWidth: '320px', background: 'var(--bg-main)', border: '1px solid var(--border-color)' }}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            {filteredCustomers.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                No registered customers found matching your search.
+              </div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email Address</th>
+                    <th>Plan Status</th>
+                    <th>Registered Date</th>
+                    <th>Devices</th>
+                    <th style={{ textAlign: 'right' }}>Management Options</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCustomers.map((customer) => {
+                    const hasActiveSub = customer.subscription_plan && customer.subscription_status === 'ACTIVE';
+                    const isSelf = customer.id === adminUser.id;
+
+                    return (
+                      <tr key={customer.id}>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>
+                            {customer.name} {customer.is_admin && <span style={{ fontSize: '0.65rem', background: 'var(--primary-light)', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px' }}>ADMIN</span>}
+                          </div>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: {customer.id}</span>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.9rem' }}>{customer.email}</span>
+                        </td>
+                        <td>
+                          {hasActiveSub ? (
+                            <div>
+                              <span style={{ fontSize: '0.8rem', background: '#d1fae5', color: '#065f46', padding: '4px 10px', borderRadius: '12px', fontWeight: 600 }}>
+                                {customer.subscription_plan}
+                              </span>
+                              {customer.current_period_end && (
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                  Expires: {new Date(customer.current_period_end).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '0.8rem', background: '#f3f4f6', color: '#374151', padding: '4px 10px', borderRadius: '12px' }}>
+                              No Active Plan
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.85rem' }}>{new Date(customer.created_at).toLocaleDateString()}</span>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 600 }}>{customer.ad_board_count} screens</span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '8px', justifyContent: 'flex-end' }}>
+                            {hasActiveSub && (
+                              <button
+                                onClick={() => handleCancelPlan(customer.id, customer.name)}
+                                className="btn btn-outline"
+                                style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#d97706', color: '#d97706' }}
+                                disabled={isActioning}
+                              >
+                                Cancel Plan
+                              </button>
+                            )}
+                            
+                            {!isSelf && (
+                              <button
+                                onClick={() => handleDeleteUser(customer.id, customer.name)}
+                                className="btn btn-primary"
+                                style={{ padding: '6px 12px', fontSize: '0.8rem', background: 'var(--accent-red)' }}
+                                disabled={isActioning}
+                              >
+                                Delete User
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

@@ -1,0 +1,520 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useNotification } from '@/lib/NotificationContext';
+
+export default function DashboardPage() {
+  const [userData, setUserData] = useState(null);
+  const [payments, setPayments] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCancelling, setIsCancelling] = useState(false);
+  
+  // Proration Modal States
+  const [prorationData, setProrationData] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const router = useRouter();
+  const { showToast } = useNotification();
+
+  const loadDashboardData = async () => {
+    try {
+      // Fetch user profile info
+      const meRes = await fetch('/api/auth/me');
+      if (!meRes.ok) {
+        showToast('Please log in to access the dashboard', 'error');
+        router.push('/login');
+        return;
+      }
+      const meData = await meRes.json();
+      setUserData(meData);
+
+      // Fetch payment transaction history
+      const historyRes = await fetch('/api/payment/history');
+      if (historyRes.ok) {
+        const historyData = await historyRes.json();
+        setPayments(historyData.payments || []);
+      }
+    } catch (err) {
+      showToast('Error loading dashboard records', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [router]);
+
+  const handlePlanChangeInitiate = async (targetPlan) => {
+    setIsCalculating(true);
+    try {
+      const res = await fetch('/api/subscription/calculate-proration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetPlan }),
+      });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to calculate proration');
+      }
+
+      setProrationData(data);
+      setIsModalOpen(true);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
+  const handleConfirmDowngrade = async () => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/subscription/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetPlan: 'STARTER' }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Downgrade failed');
+      }
+
+      showToast('Downgraded to Starter! Billing period extended.', 'success');
+      setIsModalOpen(false);
+      loadDashboardData(); // Reload profile & payments
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!window.confirm('Are you sure you want to cancel your subscription plan? This will immediately disable your connected ad screens.')) {
+      return;
+    }
+    setIsCancelling(true);
+    try {
+      const res = await fetch('/api/subscription/cancel', {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to cancel subscription');
+      }
+      showToast('Subscription cancelled successfully', 'success');
+      loadDashboardData(); // Reload records & status
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleProceedToUpgradeCheckout = () => {
+    if (!prorationData) return;
+    setIsModalOpen(false);
+    router.push(`/checkout?plan=pro&amount=${prorationData.amountDue}`);
+  };
+
+  const handleLogout = async () => {
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      if (res.ok) {
+        showToast('Logged out successfully', 'success');
+        router.push('/');
+        router.refresh();
+      }
+    } catch (err) {
+      showToast('Error logging out', 'error');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: '40px', height: '40px', border: '3px solid var(--primary-light)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s infinite linear', margin: '0 auto 16px' }}></div>
+          <p style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Hydrating console workspace...</p>
+          <style jsx global>{`
+            @keyframes spin { to { transform: rotate(360deg); } }
+          `}</style>
+        </div>
+      </div>
+    );
+  }
+
+  const { user, subscription } = userData || {};
+  const hasActivePlan = subscription && subscription.status === 'ACTIVE';
+
+  return (
+    <div className="dashboard-grid">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div>
+          <div style={{ marginBottom: '40px', padding: '0 8px' }}>
+            <Link href="/dashboard">
+              <h2 style={{ background: 'linear-gradient(135deg, #0b2b5c, #1e4a76)', WebkitBackgroundClip: 'text', color: 'transparent', fontSize: '1.8rem', fontWeight: 800 }}>YourCast</h2>
+            </Link>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>Real-time Console</span>
+          </div>
+
+          <nav className="sidebar-nav">
+            <Link href="/dashboard" className="sidebar-link active">
+              💳 Plans & Billing
+            </Link>
+            {user?.is_admin && (
+              <Link href="/dashboard/admin" className="sidebar-link">
+                🛡️ Super Admin Portal
+              </Link>
+            )}
+          </nav>
+        </div>
+
+        <button onClick={handleLogout} className="btn btn-outline" style={{ border: '1px solid var(--accent-red)', color: 'var(--accent-red)', background: 'transparent' }}>
+          🔒 Clear Session
+        </button>
+      </aside>
+
+      {/* Main Console Workspace */}
+      <main className="dashboard-content">
+        <header className="dash-header">
+          <div>
+            <h1 style={{ fontSize: '1.8rem', color: 'var(--text-dark)' }}>Console Dashboard</h1>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>
+              Welcome back, <strong>{user?.name}</strong>! Manage your digital screen subscription.
+            </p>
+          </div>
+
+          {hasActivePlan && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '8px 16px', borderRadius: '30px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
+              <span style={{ width: '8px', height: '8px', background: 'var(--accent-green)', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.8s infinite' }}></span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>Subscription Active</span>
+              <style jsx global>{`
+                @keyframes pulse {
+                  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+                  70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+                  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+                }
+              `}</style>
+            </div>
+          )}
+        </header>
+
+        {/* Current Active Plan Status */}
+        <section className="dash-card">
+          <h2 style={{ fontSize: '1.2rem', marginBottom: '16px' }}>Current Subscription</h2>
+          <div className="subscription-status-row">
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '1.5rem', fontWeight: 800, color: hasActivePlan ? 'var(--primary)' : 'var(--text-muted)' }}>
+                  {hasActivePlan ? `${subscription.plan} Plan` : 'No Active Plan'}
+                </span>
+                <span style={{ background: hasActivePlan ? 'var(--primary-light)' : '#fee2e2', color: hasActivePlan ? 'var(--primary)' : 'var(--accent-red)', padding: '2px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 600 }}>
+                  {hasActivePlan ? 'ACTIVE' : 'UNSUBSCRIBED'}
+                </span>
+              </div>
+              {hasActivePlan && (
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+                  Renews on: <strong>{new Date(subscription.current_period_end).toLocaleDateString(undefined, { dateStyle: 'long' })}</strong>
+                </p>
+              )}
+            </div>
+
+            <div className="subscription-actions-group">
+              {hasActivePlan ? (
+                <>
+                  {subscription.plan === 'STARTER' ? (
+                    <button
+                      onClick={() => handlePlanChangeInitiate('PRO')}
+                      className="btn btn-primary"
+                      disabled={isCalculating || isCancelling}
+                    >
+                      {isCalculating ? 'Calculating...' : '🚀 Upgrade to Pro (₹1500/day)'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handlePlanChangeInitiate('STARTER')}
+                      className="btn btn-outline"
+                      disabled={isCalculating || isCancelling}
+                    >
+                      {isCalculating ? 'Calculating...' : '📉 Downgrade to Starter (₹500/day)'}
+                    </button>
+                  )}
+                  <button
+                    onClick={handleCancelSubscription}
+                    className="btn btn-outline"
+                    style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}
+                    disabled={isCancelling}
+                  >
+                    {isCancelling ? 'Cancelling...' : 'Cancel Subscription'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => {
+                    const el = document.getElementById('activation-card');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="btn btn-primary"
+                >
+                  Choose a Plan
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Plan selection CTA if user has no subscription */}
+        {!hasActivePlan && (
+          <section id="activation-card" className="dash-card" style={{ padding: '40px', textAlign: 'center', background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)' }}>
+            <div style={{ fontSize: '3.5rem', marginBottom: '16px' }}>📋</div>
+            <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '12px' }}>Activate Your Digital Screen Console</h2>
+            <p style={{ color: 'var(--text-muted)', maxWidth: '600px', margin: '0 auto 32px', fontSize: '0.95rem' }}>
+              Please choose a subscription plan below to get your devices up and running. Each plan automatically provisions active screens for your dashboard.
+            </p>
+            
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', justifyContent: 'center' }}>
+              <div style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '24px', width: '260px', background: '#f8fafc', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>Starter Plan</h3>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, margin: '16px 0 8px' }}>₹500<span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-muted)' }}>/day</span></div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>1 connected LED screen with manual rotation control.</p>
+                </div>
+                <Link href="/checkout?plan=starter&amount=15000" className="btn btn-outline btn-full" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+                  Choose Starter
+                </Link>
+              </div>
+              
+              <div style={{ border: '1px solid var(--primary)', borderRadius: 'var(--radius-md)', padding: '24px', width: '260px', background: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-md)' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', marginBottom: '8px', color: 'var(--primary)' }}>Pro Plan</h3>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, margin: '16px 0 8px' }}>₹1500<span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-muted)' }}>/day</span></div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>Up to 3 screens, time/location triggers, full console.</p>
+                </div>
+                <Link href="/checkout?plan=pro&amount=45000" className="btn btn-primary btn-full" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+                  Choose Pro
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Plan Tiers Info Cards (always visible if they want to browse pricing models) */}
+        {hasActivePlan && (
+          <section className="billing-tiers-grid">
+            <div style={{ background: 'white', padding: '24px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color-light)', borderTop: subscription?.plan === 'STARTER' ? '4px solid var(--primary)' : '1px solid var(--border-color-light)' }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '6px' }}>Starter Tier</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>Best for local cafes or static displays</p>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '16px' }}>₹500.00 <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>/ day</span></div>
+              <ul style={{ paddingLeft: '20px', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.8' }}>
+                <li>1 connected LED screen</li>
+                <li>1 geographic zone coverage</li>
+                <li>Manual ad rotation controls</li>
+              </ul>
+            </div>
+            <div style={{ background: 'white', padding: '24px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color-light)', borderTop: subscription?.plan === 'PRO' ? '4px solid var(--primary)' : '1px solid var(--border-color-light)' }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '6px' }}>Pro Tier</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>Best for fleets or dynamic campaigns</p>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '16px' }}>₹1500.00 <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>/ day</span></div>
+              <ul style={{ paddingLeft: '20px', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.8' }}>
+                <li>Up to 3 connected LED screens</li>
+                <li>Hyper-local targeting (time & location)</li>
+                <li>Dynamic real-time dashboard panel</li>
+              </ul>
+            </div>
+          </section>
+        )}
+
+        {/* Ledger Transaction History */}
+        <section className="dash-card">
+          <h2 style={{ fontSize: '1.2rem', marginBottom: '16px' }}>Payment Ledger Statement</h2>
+          {payments.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', padding: '20px 0', textAlign: 'center' }}>
+              No transaction history available.
+            </p>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Transaction ID</th>
+                    <th>Date</th>
+                    <th>Payment Method</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((payment) => (
+                    <tr key={payment.id}>
+                      <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{payment.transaction_id}</td>
+                      <td>{new Date(payment.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                      <td>
+                        <span style={{ fontSize: '0.8rem', background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontWeight: 500 }}>
+                          {payment.payment_method}
+                        </span>
+                      </td>
+                      <td style={{ fontWeight: 700, color: payment.amount > 0 ? 'var(--text-dark)' : 'var(--text-muted)' }}>
+                        {payment.amount > 0 ? `₹${parseFloat(payment.amount).toLocaleString('en-IN')}` : 'Credit Adj'}
+                      </td>
+                      <td>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          padding: '4px 8px',
+                          borderRadius: '12px',
+                          background: payment.status === 'SUCCESS' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                          color: payment.status === 'SUCCESS' ? 'var(--accent-green)' : 'var(--accent-red)'
+                        }}>
+                          {payment.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {/* Proration Calculation Confirmation Overlay Modal */}
+        {isModalOpen && prorationData && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}>
+            <div style={{
+              background: 'white',
+              maxWidth: '520px',
+              width: '100%',
+              borderRadius: 'var(--radius-lg)',
+              padding: '32px',
+              boxShadow: 'var(--shadow-lg)',
+              border: '1px solid var(--border-color)',
+              animation: 'modalSlide 0.25s ease-out'
+            }}>
+              <style>{`
+                @keyframes modalSlide {
+                  from { transform: translateY(20px); opacity: 0; }
+                  to { transform: translateY(0); opacity: 1; }
+                }
+              `}</style>
+
+              <h3 style={{ fontSize: '1.4rem', marginBottom: '8px', color: 'var(--text-dark)' }}>
+                {prorationData.netCharge > 0 ? '🚀 Confirm Plan Upgrade' : '📉 Confirm Plan Downgrade'}
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '20px' }}>
+                Review the prorated subscription timeline calculations before completing the change.
+              </p>
+
+              {/* TIMELINE MATH CARD */}
+              <div className="proration-summary">
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #c2dbfc', paddingBottom: '10px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)' }}>
+                  <span>Proration Component</span>
+                  <span>Calculation Details</span>
+                </div>
+
+                <div className="timeline-math">
+                  <div className="timeline-step">
+                    <span>Remaining Cycle Duration</span>
+                    <strong>{prorationData.remainingDays.toFixed(2)} days</strong>
+                  </div>
+                  <div className="timeline-step">
+                    <span>Current Plan Credit Balance</span>
+                    <span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>
+                      +₹{prorationData.currentRemainingValue.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="timeline-step">
+                    <span>New Plan Period Cost</span>
+                    <span style={{ color: 'var(--accent-red)', fontWeight: 600 }}>
+                      -₹{prorationData.targetRemainingValue.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+
+                  {prorationData.netCharge > 0 ? (
+                    <div className="timeline-step total">
+                      <span>Net Upgrade Charge</span>
+                      <span>₹{prorationData.amountDue.toLocaleString('en-IN')} due now</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="timeline-step">
+                        <span>Excess Credit Remaining</span>
+                        <span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>
+                          +₹{(-prorationData.netCharge).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <div className="timeline-step">
+                        <span>Cycle Extension Duration</span>
+                        <strong>{prorationData.extensionDays.toFixed(1)} days extended</strong>
+                      </div>
+                      <div className="timeline-step total">
+                        <span>Net Downgrade Charge</span>
+                        <span>₹0.00 due</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* DATES ADJUSTMENT */}
+              <div style={{ marginTop: '20px', background: '#f8fafc', padding: '12px 16px', borderRadius: 'var(--radius-md)', fontSize: '0.85rem' }}>
+                <p style={{ color: 'var(--text-muted)' }}>
+                  Original Period End: <strong>{new Date(prorationData.currentPeriodEnd).toLocaleDateString()}</strong>
+                </p>
+                <p style={{ marginTop: '4px', color: 'var(--text-dark)', fontWeight: 600 }}>
+                  Adjusted Period End: <strong>{new Date(prorationData.newPeriodEnd).toLocaleDateString()}</strong>
+                </p>
+              </div>
+
+              {/* ACTION BUTTONS */}
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                {prorationData.netCharge > 0 ? (
+                  <button
+                    onClick={handleProceedToUpgradeCheckout}
+                    className="btn btn-primary"
+                    style={{ flex: 1 }}
+                  >
+                    Proceed to Payment (₹{prorationData.amountDue.toLocaleString('en-IN')}) →
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleConfirmDowngrade}
+                    className="btn btn-primary"
+                    style={{ flex: 1 }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? 'Confirming...' : 'Downgrade & Extend Period'}
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="btn btn-outline"
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
