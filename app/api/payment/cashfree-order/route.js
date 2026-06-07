@@ -28,7 +28,7 @@ export async function POST(request) {
 
     const { amount, targetPlan } = await request.json();
 
-    if (!targetPlan || !['STARTER', 'PRO'].includes(targetPlan)) {
+    if (!targetPlan || !['STARTER', 'PRO', 'TEST'].includes(targetPlan)) {
       return NextResponse.json({ error: 'Invalid plan selected' }, { status: 400 });
     }
 

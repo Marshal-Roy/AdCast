@@ -17,6 +17,17 @@ export default function BillingPage() {
   const [isCalculating, setIsCalculating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Custom Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    cancelText: '',
+    onConfirm: null,
+    isDanger: false
+  });
+
   const router = useRouter();
   const { showToast } = useNotification();
 
@@ -95,26 +106,34 @@ export default function BillingPage() {
     }
   };
 
-  const handleCancelSubscription = async () => {
-    if (!window.confirm('Are you sure you want to cancel your subscription plan? This will immediately disable your connected ad screens.')) {
-      return;
-    }
-    setIsCancelling(true);
-    try {
-      const res = await fetch('/api/subscription/cancel', {
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to cancel subscription');
+  const handleCancelSubscription = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: '⚠️ Cancel Subscription Plan',
+      message: 'Are you sure you want to cancel your subscription plan? This will immediately disable your connected ad screens and halt all scheduled rotations.',
+      confirmText: 'Yes, Cancel Subscription',
+      cancelText: 'Keep Active Plan',
+      isDanger: true,
+      onConfirm: async () => {
+        setIsCancelling(true);
+        try {
+          const res = await fetch('/api/subscription/cancel', {
+            method: 'POST',
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || 'Failed to cancel subscription');
+          }
+          showToast('Subscription cancelled successfully', 'success');
+          loadBillingData(); // Reload billing records & status
+        } catch (err) {
+          showToast(err.message, 'error');
+        } finally {
+          setIsCancelling(false);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
       }
-      showToast('Subscription cancelled successfully', 'success');
-      loadBillingData(); // Reload billing records & status
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setIsCancelling(false);
-    }
+    });
   };
 
   const handleProceedToUpgradeCheckout = () => {
@@ -159,7 +178,7 @@ export default function BillingPage() {
             <Link href="/">
               <h2 style={{ background: 'linear-gradient(135deg, #0b2b5c, #1e4a76)', WebkitBackgroundClip: 'text', color: 'transparent', fontSize: '1.8rem', fontWeight: 800 }}>YourCast</h2>
             </Link>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>Real-time Console</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>Ad Cast Console</span>
           </div>
 
           <nav className="sidebar-nav">
@@ -176,10 +195,6 @@ export default function BillingPage() {
             )}
           </nav>
         </div>
-
-        <button onClick={handleLogout} className="btn btn-outline" style={{ border: '1px solid var(--accent-red)', color: 'var(--accent-red)', background: 'transparent' }}>
-          🔒 Clear Session
-        </button>
       </aside>
 
       {/* Main Console Workspace */}
@@ -190,6 +205,12 @@ export default function BillingPage() {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>
               Manage subscription plans, check proration calculations, and view payment statements.
             </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button onClick={handleLogout} className="btn btn-outline" style={{ border: '1px solid var(--accent-red)', color: 'var(--accent-red)', background: 'transparent', padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+              🔒 Logout
+            </button>
           </div>
         </header>
 
@@ -451,6 +472,68 @@ export default function BillingPage() {
                   disabled={isSubmitting}
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Confirmation Modal */}
+        {confirmModal.isOpen && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}>
+            <div style={{
+              background: 'white',
+              maxWidth: '440px',
+              width: '100%',
+              borderRadius: 'var(--radius-lg)',
+              padding: '32px',
+              boxShadow: 'var(--shadow-lg)',
+              border: '1px solid var(--border-color)',
+              animation: 'modalSlide 0.2s ease-out',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '3rem',
+                marginBottom: '16px'
+              }}>
+                {confirmModal.isDanger ? '⚠️' : '❓'}
+              </div>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-dark)' }}>
+                {confirmModal.title}
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '24px', lineHeight: 1.6 }}>
+                {confirmModal.message}
+              </p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={confirmModal.onConfirm}
+                  className="btn"
+                  style={{
+                    flex: 1,
+                    background: confirmModal.isDanger ? 'var(--accent-red)' : 'var(--primary)',
+                    color: 'white',
+                    padding: '10px 16px',
+                    fontWeight: 600
+                  }}
+                >
+                  {confirmModal.confirmText || 'Confirm'}
+                </button>
+                <button
+                  onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                  className="btn btn-outline"
+                  style={{ flex: 1, padding: '10px 16px' }}
+                >
+                  {confirmModal.cancelText || 'Cancel'}
                 </button>
               </div>
             </div>

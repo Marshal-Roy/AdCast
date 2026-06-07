@@ -123,7 +123,7 @@ export default function LandingPage() {
           <div className="navbar">
             <div className="logo" onClick={() => scrollToSection('home')} style={{ cursor: 'pointer' }}>
               <h1>YourCast</h1>
-              <span>real-time · smart displays</span>
+              <span>smart ad displays</span>
             </div>
 
             <div className="nav-links">
@@ -167,13 +167,13 @@ export default function LandingPage() {
             <div className="hero-grid">
               <div>
                 <div style={{ background: '#e9f0fd', color: '#1a5bbf', display: 'inline-block', padding: '6px 14px', borderRadius: '40px', fontSize: '0.8rem', fontWeight: 600, marginBottom: '24px' }}>
-                  ⚡ LIVE ADVERTISING · REAL-TIME UPDATES
+                  ⚡ LIVE ADVERTISING · RELIABLE SCHEDULING
                 </div>
                 <h1 className="hero-title">
-                  Turn every screen into a <span style={{ color: 'var(--primary)' }}>live opportunity</span>
+                  Turn every screen into a <span style={{ color: 'var(--primary)' }}>marketing opportunity</span>
                 </h1>
                 <p className="hero-description">
-                  Real-time digital ad boards for mobile fleets, retail stores, and events. Change ads in seconds, track impressions live.
+                  Digital ad boards for mobile fleets, retail stores, and events. Display your campaigns and track impressions live.
                 </p>
                 <div className="hero-buttons">
                   <button onClick={() => scrollToSection('pricing')} className="btn btn-primary btn-large">
@@ -193,7 +193,7 @@ export default function LandingPage() {
                     ⏱️ updated 2 sec ago
                   </div>
                   <p style={{ marginTop: '16px', fontSize: '0.8rem', opacity: 0.8, fontWeight: 500, textAlign: 'center' }}>
-                    ✨ Real-time ad rotation | GPS targeted
+                    ✨ Automated ad rotation | Location targeted
                   </p>
                 </div>
               </div>
@@ -210,18 +210,18 @@ export default function LandingPage() {
             <div className="steps-grid">
               <div className="step-card">
                 <div className="step-badge">1</div>
-                <h3 style={{ fontSize: '1.3rem', marginBottom: '12px' }}>Choose zone & screens</h3>
-                <p style={{ color: 'var(--text-muted)' }}>Pick location, time slot, screen type: mobile LED, in-store display, or roadside board.</p>
+                <h3 style={{ fontSize: '1.3rem', marginBottom: '12px' }}>Select screen package</h3>
+                <p style={{ color: 'var(--text-muted)' }}>Choose the plan that suits you best: Starter (1 screen) or Pro (3 screens) for your ad campaign.</p>
               </div>
               <div className="step-card">
                 <div className="step-badge">2</div>
-                <h3 style={{ fontSize: '1.3rem', marginBottom: '12px' }}>Upload & adjust in real-time</h3>
-                <p style={{ color: 'var(--text-muted)' }}>Image, video, or text. Changes reflect globally under 60 seconds. Pause or edit live.</p>
+                <h3 style={{ fontSize: '1.3rem', marginBottom: '12px' }}>Assign display content</h3>
+                <p style={{ color: 'var(--text-muted)' }}>Select what you want to show on your screens upon scheduling. Content remains fixed and reliable for the duration.</p>
               </div>
               <div className="step-card">
                 <div className="step-badge">3</div>
-                <h3 style={{ fontSize: '1.3rem', marginBottom: '12px' }}>Track live metrics</h3>
-                <p style={{ color: 'var(--text-muted)' }}>Real impressions, engagement heatmaps, and hourly reports from your dashboard.</p>
+                <h3 style={{ fontSize: '1.3rem', marginBottom: '12px' }}>Track live impressions</h3>
+                <p style={{ color: 'var(--text-muted)' }}>Monitor real impressions and track performance metrics directly from your console dashboard.</p>
               </div>
             </div>
           </div>
@@ -236,23 +236,23 @@ export default function LandingPage() {
             <div className="why-grid">
               <div className="why-card" style={{ background: 'var(--bg-main)', textAlign: 'center' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>⚡</div>
-                <h4 style={{ fontSize: '1.15rem', marginBottom: '8px' }}>Real-time updates</h4>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>No waiting days — edit screen text or banners in seconds</p>
+                <h4 style={{ fontSize: '1.15rem', marginBottom: '8px' }}>Automated schedules</h4>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Reliable automated rotations run continuously without manual intervention</p>
               </div>
               <div className="why-card" style={{ background: 'var(--bg-main)', textAlign: 'center' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>📍</div>
                 <h4 style={{ fontSize: '1.15rem', marginBottom: '8px' }}>Hyper-local reach</h4>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Target within 500 meters of your store dynamically</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Target your audience within specific geographic display locations</p>
               </div>
               <div className="why-card" style={{ background: 'var(--bg-main)', textAlign: 'center' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>📊</div>
                 <h4 style={{ fontSize: '1.15rem', marginBottom: '8px' }}>Transparent analytics</h4>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Know every view, impression, and heatmap interaction</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Monitor verified screen views and aggregate impression metrics in real-time</p>
               </div>
               <div className="why-card" style={{ background: 'var(--bg-main)', textAlign: 'center' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>💰</div>
-                <h4 style={{ fontSize: '1.15rem', marginBottom: '8px' }}>Pay-as-you-go</h4>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>No lock-in contracts, flexible daily/monthly billing</p>
+                <h4 style={{ fontSize: '1.15rem', marginBottom: '8px' }}>Flexible pricing</h4>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Choose from standard Starter or Pro daily rates without hidden fees</p>
               </div>
             </div>
           </div>
@@ -325,16 +325,16 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Connect & Ask section */}
+        {/* Connect section */}
         <section id="contact" style={{ padding: '70px 0', borderBottom: 'none' }}>
           <div className="container">
             <h2 style={{ fontSize: '2.2rem', fontWeight: 800, textAlign: 'center', marginBottom: '48px' }}>
               📢 Connect with YourCast
             </h2>
-            <div className="contact-wrapper">
+            <div style={{ maxWidth: '600px', margin: '0 auto', background: 'white', padding: '36px', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border-color-light)' }}>
               {/* Contact Info */}
               <div>
-                <h3 style={{ fontSize: '1.6rem', marginBottom: '24px' }}>📞 Reach us directly</h3>
+                <h3 style={{ fontSize: '1.6rem', marginBottom: '24px', textAlign: 'center' }}>📞 Reach us directly</h3>
                 <div style={{ display: 'flex', gap: '16px', marginBottom: '28px', alignItems: 'flex-start' }}>
                   <div style={{ background: 'var(--primary-light)', minWidth: '48px', height: '48px', borderRadius: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>📍</div>
                   <div>
@@ -353,7 +353,7 @@ export default function LandingPage() {
                   <div style={{ background: 'var(--primary-light)', minWidth: '48px', height: '48px', borderRadius: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>✉️</div>
                   <div>
                     <strong>Email</strong>
-                    <br /><span style={{ color: 'var(--text-muted)' }}>hello@yourcast.com</span>
+                    <br /><span style={{ color: 'var(--text-muted)' }}><a href="mailto:hello@yourcast.com" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>hello@yourcast.com</a></span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '16px', marginBottom: '28px', alignItems: 'flex-start' }}>
@@ -363,71 +363,14 @@ export default function LandingPage() {
                     <br /><span style={{ color: 'var(--text-muted)' }}>Mon–Sat, 9am – 9pm IST</span>
                   </div>
                 </div>
-                <div style={{ marginTop: '24px' }}>
-                  <p style={{ fontWeight: 600, marginBottom: '8px' }}>Follow us:</p>
-                  <div style={{ display: 'flex', gap: '20px', color: 'var(--primary)', fontWeight: 500 }}>
+                <div style={{ marginTop: '24px', textAlign: 'center', borderTop: '1px solid var(--border-color-light)', paddingTop: '24px' }}>
+                  <p style={{ fontWeight: 600, marginBottom: '12px' }}>Follow us:</p>
+                  <div style={{ display: 'flex', gap: '24px', justifyContent: 'center', color: 'var(--primary)', fontWeight: 500 }}>
                     <span style={{ cursor: 'pointer' }}>🔵 Instagram</span>
                     <span style={{ cursor: 'pointer' }}>🔗 LinkedIn</span>
                     <span style={{ cursor: 'pointer' }}>🐦 Twitter</span>
                   </div>
                 </div>
-              </div>
-
-              {/* Contact Form */}
-              <div style={{ padding: '16px', background: '#fcfdfe', borderRadius: '32px' }}>
-                <h3 style={{ fontSize: '1.6rem', marginBottom: '12px' }}>❓ Ask us anything</h3>
-                <p style={{ marginBottom: '20px', color: '#4a627a', fontSize: '0.95rem' }}>
-                  Need a custom screen location? Real-time API? Just drop a message – we reply within 2 hours.
-                </p>
-                <form onSubmit={handleContactSubmit}>
-                  <div className="form-group">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Your name *"
-                      value={contactName}
-                      onChange={(e) => setContactName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <input
-                      type="email"
-                      className="form-control"
-                      placeholder="Email address *"
-                      value={contactEmail}
-                      onChange={(e) => setContactEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <input
-                      type="tel"
-                      className="form-control"
-                      placeholder="Phone number (optional)"
-                      value={contactPhone}
-                      onChange={(e) => setContactPhone(e.target.value)}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <textarea
-                      id="askMessage"
-                      rows="4"
-                      className="form-control"
-                      style={{ resize: 'vertical', borderRadius: 'var(--radius-md)' }}
-                      placeholder="What do you need? e.g., 'Can we run ads inside a salon?', 'Pricing for bike fleet?', 'Integrate with my app?' *"
-                      value={contactMessage}
-                      onChange={(e) => setContactMessage(e.target.value)}
-                      required
-                    ></textarea>
-                  </div>
-                  <button type="submit" className="btn btn-primary btn-full" disabled={isSubmitting}>
-                    {isSubmitting ? 'Sending request...' : '📨 Send your request →'}
-                  </button>
-                  <p style={{ fontSize: '0.75rem', marginTop: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    We’ll connect within 2 business hours.
-                  </p>
-                </form>
               </div>
             </div>
           </div>
@@ -440,9 +383,9 @@ export default function LandingPage() {
             <p style={{ margin: '12px auto 24px', maxWidth: '600px', color: 'var(--text-muted)' }}>
               From drone-led banners to 3D anamorphic screens – we build custom ad solutions.
             </p>
-            <button onClick={handleSpecialRequest} className="btn btn-primary btn-large">
+            <a href="mailto:hello@yourcast.com?subject=Special Campaign Request" className="btn btn-primary btn-large" style={{ display: 'inline-flex', textDecoration: 'none', alignItems: 'center', justifyContent: 'center' }}>
               📢 Talk to our team now
-            </button>
+            </a>
           </div>
         </section>
       </main>

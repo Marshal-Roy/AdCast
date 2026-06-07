@@ -11,6 +11,18 @@ export default function AdminDashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isActioning, setIsActioning] = useState(false);
+
+  // Custom Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    cancelText: '',
+    onConfirm: null,
+    isDanger: false
+  });
+
   const router = useRouter();
   const { showToast } = useNotification();
 
@@ -71,56 +83,71 @@ export default function AdminDashboardPage() {
   };
 
   // Cancel customer plan
-  const handleCancelPlan = async (userId, userName) => {
-    if (!window.confirm(`Are you sure you want to cancel the subscription plan for ${userName}?`)) {
-      return;
-    }
+  const handleCancelPlan = (userId, userName) => {
+    setConfirmModal({
+      isOpen: true,
+      title: '⚠️ Cancel Plan Confirmation',
+      message: `Are you sure you want to cancel the subscription plan for ${userName}? This will immediately disable their screen displays.`,
+      confirmText: 'Yes, Cancel Plan',
+      cancelText: 'Keep Active Plan',
+      isDanger: true,
+      onConfirm: async () => {
+        setIsActioning(true);
+        try {
+          const res = await fetch('/api/admin/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId }),
+          });
 
-    setIsActioning(true);
-    try {
-      const res = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || 'Failed to cancel subscription');
+          }
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to cancel subscription');
+          showToast(`Subscription plan cancelled for ${userName}`, 'success');
+          await fetchCustomers(); // reload table
+        } catch (err) {
+          showToast(err.message, 'error');
+        } finally {
+          setIsActioning(false);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
       }
-
-      showToast(`Subscription plan cancelled for ${userName}`, 'success');
-      await fetchCustomers(); // reload table
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setIsActioning(false);
-    }
+    });
   };
 
   // Delete customer account
-  const handleDeleteUser = async (userId, userName) => {
-    const doubleConfirm = window.confirm(`⚠️ WARNING: Are you absolutely sure you want to delete user "${userName}"?\nThis will permanently delete their account, subscriptions, payments, and all connected ad boards. This action cannot be undone.`);
-    if (!doubleConfirm) return;
+  const handleDeleteUser = (userId, userName) => {
+    setConfirmModal({
+      isOpen: true,
+      title: '🛑 PERMANENT ACCOUNT DELETION',
+      message: `Are you absolutely sure you want to permanently delete user "${userName}"? This will erase their login credentials, subscriptions, ledger files, and screen databases. This action cannot be undone.`,
+      confirmText: 'Yes, Permanently Delete',
+      cancelText: 'Cancel',
+      isDanger: true,
+      onConfirm: async () => {
+        setIsActioning(true);
+        try {
+          const res = await fetch(`/api/admin/users?userId=${userId}`, {
+            method: 'DELETE',
+          });
 
-    setIsActioning(true);
-    try {
-      const res = await fetch(`/api/admin/users?userId=${userId}`, {
-        method: 'DELETE',
-      });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || 'Failed to delete user account');
+          }
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to delete user account');
+          showToast(`Account deleted successfully for ${userName}`, 'success');
+          await fetchCustomers(); // reload table
+        } catch (err) {
+          showToast(err.message, 'error');
+        } finally {
+          setIsActioning(false);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
       }
-
-      showToast(`Account deleted successfully for ${userName}`, 'success');
-      await fetchCustomers(); // reload table
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setIsActioning(false);
-    }
+    });
   };
 
   // Filter customers by search input
@@ -154,7 +181,7 @@ export default function AdminDashboardPage() {
             <Link href="/dashboard">
               <h2 style={{ background: 'linear-gradient(135deg, #0b2b5c, #1e4a76)', WebkitBackgroundClip: 'text', color: 'transparent', fontSize: '1.8rem', fontWeight: 800 }}>YourCast</h2>
             </Link>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>Super Admin System</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>Ad Cast Admin</span>
           </div>
 
           <nav className="sidebar-nav">
@@ -169,10 +196,6 @@ export default function AdminDashboardPage() {
             </Link>
           </nav>
         </div>
-
-        <button onClick={handleLogout} className="btn btn-outline" style={{ border: '1px solid var(--accent-red)', color: 'var(--accent-red)', background: 'transparent' }}>
-          🔒 Clear Session
-        </button>
       </aside>
 
       {/* Main Console Workspace */}
@@ -185,9 +208,14 @@ export default function AdminDashboardPage() {
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#eef4ff', padding: '8px 16px', borderRadius: '30px', border: '1px solid #cce0ff' }}>
-            <span style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }}></span>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)' }}>Authorized Session</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#eef4ff', padding: '8px 16px', borderRadius: '30px', border: '1px solid #cce0ff' }}>
+              <span style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }}></span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)' }}>Authorized Session</span>
+            </div>
+            <button onClick={handleLogout} className="btn btn-outline" style={{ border: '1px solid var(--accent-red)', color: 'var(--accent-red)', background: 'transparent', padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+              🔒 Logout
+            </button>
           </div>
         </header>
 
@@ -268,7 +296,9 @@ export default function AdminDashboardPage() {
                               </span>
                               {customer.current_period_end && (
                                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                  Expires: {new Date(customer.current_period_end).toLocaleDateString()}
+                                  Expires: {customer.subscription_plan === 'TEST' 
+                                    ? new Date(customer.current_period_end).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+                                    : new Date(customer.current_period_end).toLocaleDateString()}
                                 </div>
                               )}
                             </div>
@@ -317,6 +347,67 @@ export default function AdminDashboardPage() {
             )}
           </div>
         </div>
+        {/* Custom Confirmation Modal */}
+        {confirmModal.isOpen && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}>
+            <div style={{
+              background: 'white',
+              maxWidth: '440px',
+              width: '100%',
+              borderRadius: 'var(--radius-lg)',
+              padding: '32px',
+              boxShadow: 'var(--shadow-lg)',
+              border: '1px solid var(--border-color)',
+              animation: 'modalSlide 0.2s ease-out',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '3rem',
+                marginBottom: '16px'
+              }}>
+                {confirmModal.isDanger ? '⚠️' : '❓'}
+              </div>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-dark)' }}>
+                {confirmModal.title}
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '24px', lineHeight: 1.6 }}>
+                {confirmModal.message}
+              </p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={confirmModal.onConfirm}
+                  className="btn"
+                  style={{
+                    flex: 1,
+                    background: confirmModal.isDanger ? 'var(--accent-red)' : 'var(--primary)',
+                    color: 'white',
+                    padding: '10px 16px',
+                    fontWeight: 600
+                  }}
+                >
+                  {confirmModal.confirmText || 'Confirm'}
+                </button>
+                <button
+                  onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                  className="btn btn-outline"
+                  style={{ flex: 1, padding: '10px 16px' }}
+                >
+                  {confirmModal.cancelText || 'Cancel'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

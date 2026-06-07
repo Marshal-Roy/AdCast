@@ -19,6 +19,18 @@ export default function LoginPage() {
       return;
     }
 
+    // Input Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showToast('Please enter a valid email address', 'error');
+      return;
+    }
+
+    if (password.length < 6) {
+      showToast('Password must be at least 6 characters long', 'error');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const res = await fetch('/api/auth/login', {

@@ -19,8 +19,30 @@ export default function RegisterPage() {
       showToast('All fields are required', 'error');
       return;
     }
+
+    // Name Validation
+    if (name.trim().length < 2) {
+      showToast('Name must be at least 2 characters long', 'error');
+      return;
+    }
+
+    // Email Regex Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showToast('Please enter a valid email address', 'error');
+      return;
+    }
+
+    // Password Complexity Validation
     if (password.length < 6) {
-      showToast('Password must be at least 6 characters', 'error');
+      showToast('Password must be at least 6 characters long', 'error');
+      return;
+    }
+
+    const passwordLetterRegex = /[a-zA-Z]/;
+    const passwordNumberRegex = /[0-9]/;
+    if (!passwordLetterRegex.test(password) || !passwordNumberRegex.test(password)) {
+      showToast('Password must contain both letters and numbers', 'error');
       return;
     }
 

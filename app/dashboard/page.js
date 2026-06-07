@@ -17,6 +17,17 @@ export default function DashboardPage() {
   const [isCalculating, setIsCalculating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Custom Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    cancelText: '',
+    onConfirm: null,
+    isDanger: false
+  });
+
   const router = useRouter();
   const { showToast } = useNotification();
 
@@ -96,26 +107,34 @@ export default function DashboardPage() {
     }
   };
 
-  const handleCancelSubscription = async () => {
-    if (!window.confirm('Are you sure you want to cancel your subscription plan? This will immediately disable your connected ad screens.')) {
-      return;
-    }
-    setIsCancelling(true);
-    try {
-      const res = await fetch('/api/subscription/cancel', {
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to cancel subscription');
+  const handleCancelSubscription = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: '⚠️ Cancel Subscription Plan',
+      message: 'Are you sure you want to cancel your subscription plan? This will immediately disable your connected ad screens and halt all scheduled rotations.',
+      confirmText: 'Yes, Cancel Subscription',
+      cancelText: 'Keep Active Plan',
+      isDanger: true,
+      onConfirm: async () => {
+        setIsCancelling(true);
+        try {
+          const res = await fetch('/api/subscription/cancel', {
+            method: 'POST',
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || 'Failed to cancel subscription');
+          }
+          showToast('Subscription cancelled successfully', 'success');
+          loadDashboardData(); // Reload records & status
+        } catch (err) {
+          showToast(err.message, 'error');
+        } finally {
+          setIsCancelling(false);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
       }
-      showToast('Subscription cancelled successfully', 'success');
-      loadDashboardData(); // Reload records & status
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setIsCancelling(false);
-    }
+    });
   };
 
   const handleProceedToUpgradeCheckout = () => {
@@ -163,7 +182,7 @@ export default function DashboardPage() {
             <Link href="/dashboard">
               <h2 style={{ background: 'linear-gradient(135deg, #0b2b5c, #1e4a76)', WebkitBackgroundClip: 'text', color: 'transparent', fontSize: '1.8rem', fontWeight: 800 }}>YourCast</h2>
             </Link>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>Real-time Console</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>Ad Cast Console</span>
           </div>
 
           <nav className="sidebar-nav">
@@ -177,10 +196,6 @@ export default function DashboardPage() {
             )}
           </nav>
         </div>
-
-        <button onClick={handleLogout} className="btn btn-outline" style={{ border: '1px solid var(--accent-red)', color: 'var(--accent-red)', background: 'transparent' }}>
-          🔒 Clear Session
-        </button>
       </aside>
 
       {/* Main Console Workspace */}
@@ -193,19 +208,24 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {hasActivePlan && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '8px 16px', borderRadius: '30px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-              <span style={{ width: '8px', height: '8px', background: 'var(--accent-green)', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.8s infinite' }}></span>
-              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>Subscription Active</span>
-              <style jsx global>{`
-                @keyframes pulse {
-                  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-                  70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
-                  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-                }
-              `}</style>
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {hasActivePlan && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '8px 16px', borderRadius: '30px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
+                <span style={{ width: '8px', height: '8px', background: 'var(--accent-green)', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.8s infinite' }}></span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>Subscription Active</span>
+                <style jsx global>{`
+                  @keyframes pulse {
+                    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+                    70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+                  }
+                `}</style>
+              </div>
+            )}
+            <button onClick={handleLogout} className="btn btn-outline" style={{ border: '1px solid var(--accent-red)', color: 'var(--accent-red)', background: 'transparent', padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+              🔒 Logout
+            </button>
+          </div>
         </header>
 
         {/* Current Active Plan Status */}
@@ -223,7 +243,9 @@ export default function DashboardPage() {
               </div>
               {hasActivePlan && (
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-                  Renews on: <strong>{new Date(subscription.current_period_end).toLocaleDateString(undefined, { dateStyle: 'long' })}</strong>
+                  Renews on: <strong>{subscription.plan === 'TEST' 
+                    ? new Date(subscription.current_period_end).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+                    : new Date(subscription.current_period_end).toLocaleDateString(undefined, { dateStyle: 'long' })}</strong>
                 </p>
               )}
             </div>
@@ -282,22 +304,36 @@ export default function DashboardPage() {
             </p>
             
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', justifyContent: 'center' }}>
+              {/* Test Plan */}
+              <div style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '24px', width: '260px', background: '#f8fafc', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>Test Plan</h3>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, margin: '16px 0 8px' }}>₹1<span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-muted)' }}>/2 min</span></div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>For automated renewal & webhook verification (renews every 2 minutes).</p>
+                </div>
+                <Link href="/checkout?plan=test&amount=1" className="btn btn-outline btn-full" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+                  Choose Test
+                </Link>
+              </div>
+
+              {/* Starter Plan */}
               <div style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '24px', width: '260px', background: '#f8fafc', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
                   <h3 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>Starter Plan</h3>
                   <div style={{ fontSize: '1.8rem', fontWeight: 800, margin: '16px 0 8px' }}>₹500<span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-muted)' }}>/day</span></div>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>1 connected LED screen with manual rotation control.</p>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>1 connected LED screen with scheduled display rotation.</p>
                 </div>
                 <Link href="/checkout?plan=starter&amount=15000" className="btn btn-outline btn-full" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
                   Choose Starter
                 </Link>
               </div>
               
+              {/* Pro Plan */}
               <div style={{ border: '1px solid var(--primary)', borderRadius: 'var(--radius-md)', padding: '24px', width: '260px', background: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-md)' }}>
                 <div>
                   <h3 style={{ fontSize: '1.2rem', marginBottom: '8px', color: 'var(--primary)' }}>Pro Plan</h3>
                   <div style={{ fontSize: '1.8rem', fontWeight: 800, margin: '16px 0 8px' }}>₹1500<span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-muted)' }}>/day</span></div>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>Up to 3 screens, time/location triggers, full console.</p>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>Up to 3 screens, time/location schedules, full console.</p>
                 </div>
                 <Link href="/checkout?plan=pro&amount=45000" className="btn btn-primary btn-full" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
                   Choose Pro
@@ -509,6 +545,68 @@ export default function DashboardPage() {
                   disabled={isSubmitting}
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Confirmation Modal */}
+        {confirmModal.isOpen && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}>
+            <div style={{
+              background: 'white',
+              maxWidth: '440px',
+              width: '100%',
+              borderRadius: 'var(--radius-lg)',
+              padding: '32px',
+              boxShadow: 'var(--shadow-lg)',
+              border: '1px solid var(--border-color)',
+              animation: 'modalSlide 0.2s ease-out',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '3rem',
+                marginBottom: '16px'
+              }}>
+                {confirmModal.isDanger ? '⚠️' : '❓'}
+              </div>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-dark)' }}>
+                {confirmModal.title}
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '24px', lineHeight: 1.6 }}>
+                {confirmModal.message}
+              </p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={confirmModal.onConfirm}
+                  className="btn"
+                  style={{
+                    flex: 1,
+                    background: confirmModal.isDanger ? 'var(--accent-red)' : 'var(--primary)',
+                    color: 'white',
+                    padding: '10px 16px',
+                    fontWeight: 600
+                  }}
+                >
+                  {confirmModal.confirmText || 'Confirm'}
+                </button>
+                <button
+                  onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                  className="btn btn-outline"
+                  style={{ flex: 1, padding: '10px 16px' }}
+                >
+                  {confirmModal.cancelText || 'Cancel'}
                 </button>
               </div>
             </div>

@@ -91,19 +91,25 @@ export async function POST(request) {
       }
 
       // Determine plan level based on price
-      // Starter = 500/day -> 15000/30 days. Pro = 1500/day -> 45000/30 days.
+      // Starter = 500/day -> 15000/30 days. Pro = 1500/day -> 45000/30 days. Test = 1.00 / 2 min.
       let plan = 'PRO';
       let pricePerDay = 1500.00;
       let targetScreens = 3;
 
-      if (amount < 30000) { // e.g. 15000
+      if (amount <= 50) { // e.g. 1.00 Rupee Test plan
+        plan = 'TEST';
+        pricePerDay = 720.00;
+        targetScreens = 1;
+      } else if (amount < 30000) { // e.g. 15000
         plan = 'STARTER';
         pricePerDay = 500.00;
         targetScreens = 1;
       }
 
       const periodStart = new Date();
-      const periodEnd = new Date(periodStart.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 days
+      const periodEnd = plan === 'TEST'
+        ? new Date(periodStart.getTime() + (2 * 60 * 1000)) // 2 minutes
+        : new Date(periodStart.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 days
 
       // Update or create active subscription
       // Set any existing subscriptions to EXPIRED/CANCELLED first
@@ -123,7 +129,7 @@ export async function POST(request) {
       // Delete any current active screens and insert fresh ones
       await query('DELETE FROM ad_boards WHERE user_id = $1', [userId]);
 
-      if (plan === 'STARTER') {
+      if (plan === 'STARTER' || plan === 'TEST') {
         await query(
           "INSERT INTO ad_boards (user_id, name, location, content) VALUES ($1, 'Primary Screen', 'Main Lobby', 'Welcome to YourCast! Edit this text from the console.')",
           [userId]

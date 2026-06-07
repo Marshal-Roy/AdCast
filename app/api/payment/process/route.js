@@ -21,7 +21,7 @@ export async function POST(request) {
 
     const { amount, paymentMethod, targetPlan, cardDetails, upiDetails } = await request.json();
 
-    if (!targetPlan || !['STARTER', 'PRO'].includes(targetPlan)) {
+    if (!targetPlan || !['STARTER', 'PRO', 'TEST'].includes(targetPlan)) {
       return NextResponse.json({ error: 'Invalid target plan' }, { status: 400 });
     }
 
@@ -58,15 +58,19 @@ export async function POST(request) {
     );
 
     const transactionId = `TXN_${paymentMethod.substring(0,3)}_${Math.random().toString(36).substring(2,11).toUpperCase()}`;
-    const targetPricePerDay = targetPlan === 'STARTER' ? 500.00 : 1500.00;
+    const targetPricePerDay = targetPlan === 'STARTER' ? 500.00 : targetPlan === 'PRO' ? 1500.00 : 720.00;
 
     let finalExpiry;
 
     if (subRes.rows.length === 0) {
-      // Create new subscription for 30 days
+      // Create new subscription
       const now = new Date();
       const expiry = new Date();
-      expiry.setDate(now.getDate() + 30);
+      if (targetPlan === 'TEST') {
+        expiry.setMinutes(now.getMinutes() + 2);
+      } else {
+        expiry.setDate(now.getDate() + 30);
+      }
       finalExpiry = expiry.toISOString();
 
       await query(
@@ -76,8 +80,8 @@ export async function POST(request) {
         [decoded.id, targetPlan, 'ACTIVE', targetPricePerDay, now, expiry]
       );
 
-      // Initialize devices (Starter = 1, Pro = 3)
-      if (targetPlan === 'STARTER') {
+      // Initialize devices (Starter = 1, Pro = 3, Test = 1)
+      if (targetPlan === 'STARTER' || targetPlan === 'TEST') {
         await query(
           `INSERT INTO ad_boards (user_id, name, location, content, impressions) VALUES 
            ($1, $2, $3, $4, $5)`,

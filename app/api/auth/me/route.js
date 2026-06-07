@@ -34,7 +34,49 @@ export async function GET() {
        ORDER BY id DESC LIMIT 1`, 
       [user.id]
     );
-    const subscription = subRes.rows.length > 0 ? subRes.rows[0] : null;
+    let subscription = subRes.rows.length > 0 ? subRes.rows[0] : null;
+
+    // Auto-renew test subscription if expired (2-minute intervals)
+    if (subscription && subscription.plan === 'TEST' && subscription.status === 'ACTIVE') {
+      const expiryTime = new Date(subscription.current_period_end).getTime();
+      const now = new Date();
+      if (now.getTime() > expiryTime) {
+        const newStart = now;
+        const newEnd = new Date(now.getTime() + 2 * 60 * 1000); // 2 minutes
+
+        // 1. Mark previous active as EXPIRED
+        await query(
+          "UPDATE subscriptions SET status = 'EXPIRED' WHERE user_id = $1 AND status = 'ACTIVE'",
+          [user.id]
+        );
+
+        // 2. Insert new active subscription
+        await query(
+          `INSERT INTO subscriptions 
+           (user_id, plan, status, price_per_day, current_period_start, current_period_end) 
+           VALUES ($1, 'TEST', 'ACTIVE', 720.00, $2, $3)`,
+          [user.id, newStart, newEnd]
+        );
+
+        // 3. Insert auto-renew payment record of ₹1
+        const transactionId = `TEST_RENEW_${Math.random().toString(36).substring(2,11).toUpperCase()}`;
+        await query(
+          `INSERT INTO payments (user_id, amount, payment_method, status, transaction_id) 
+           VALUES ($1, 1.00, 'AUTO_RENEW', 'SUCCESS', $2)`,
+          [user.id, transactionId]
+        );
+
+        // Re-fetch the updated subscription
+        const updatedSubRes = await query(
+          `SELECT plan, status, price_per_day, current_period_start, current_period_end 
+           FROM subscriptions 
+           WHERE user_id = $1 AND status = 'ACTIVE' 
+           ORDER BY id DESC LIMIT 1`, 
+          [user.id]
+        );
+        subscription = updatedSubRes.rows.length > 0 ? updatedSubRes.rows[0] : null;
+      }
+    }
 
     // Fetch ad boards
     const boardsRes = await query(

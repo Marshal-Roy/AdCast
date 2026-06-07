@@ -21,7 +21,7 @@ export async function POST(request) {
 
     const { targetPlan } = await request.json();
 
-    if (!targetPlan || !['STARTER', 'PRO'].includes(targetPlan)) {
+    if (!targetPlan || !['STARTER', 'PRO', 'TEST'].includes(targetPlan)) {
       return NextResponse.json({ error: 'Invalid target plan selected' }, { status: 400 });
     }
 
@@ -46,16 +46,25 @@ export async function POST(request) {
     let newPeriodEnd = now.toISOString();
     let extensionDays = 0;
 
-    const targetPricePerDay = targetPlan === 'STARTER' ? 500.00 : 1500.00;
+    const targetPricePerDay = targetPlan === 'STARTER' ? 500.00 : targetPlan === 'PRO' ? 1500.00 : 720.00;
 
     if (subRes.rows.length === 0) {
       // New subscription
-      targetRemainingValue = 30 * targetPricePerDay;
-      netCharge = targetRemainingValue;
-      amountDue = netCharge;
-      const expiry = new Date();
-      expiry.setDate(now.getDate() + 30);
-      newPeriodEnd = expiry.toISOString();
+      if (targetPlan === 'TEST') {
+        targetRemainingValue = 1.00;
+        netCharge = 1.00;
+        amountDue = 1.00;
+        const expiry = new Date();
+        expiry.setMinutes(now.getMinutes() + 2);
+        newPeriodEnd = expiry.toISOString();
+      } else {
+        targetRemainingValue = 30 * targetPricePerDay;
+        netCharge = targetRemainingValue;
+        amountDue = netCharge;
+        const expiry = new Date();
+        expiry.setDate(now.getDate() + 30);
+        newPeriodEnd = expiry.toISOString();
+      }
     } else {
       const currentSub = subRes.rows[0];
       currentPlan = currentSub.plan;
@@ -67,11 +76,23 @@ export async function POST(request) {
 
       periodEnd = new Date(currentSub.current_period_end);
       const remainingTimeMs = periodEnd.getTime() - now.getTime();
-      remainingDays = Math.max(0, remainingTimeMs / (1000 * 60 * 60 * 24));
 
-      currentRemainingValue = remainingDays * currentPricePerDay;
-      targetRemainingValue = remainingDays * targetPricePerDay;
-      netCharge = targetRemainingValue - currentRemainingValue;
+      if (currentPlan === 'TEST' || targetPlan === 'TEST') {
+        const remainingMins = Math.max(0, remainingTimeMs / (1000 * 60));
+        currentRemainingValue = currentPlan === 'TEST' 
+          ? (remainingMins / 2.0) * 1.00 
+          : (remainingMins / (30 * 24 * 60.0)) * (30 * currentPricePerDay);
+        targetRemainingValue = targetPlan === 'TEST'
+          ? (remainingMins / 2.0) * 1.00
+          : (remainingMins / (30 * 24 * 60.0)) * (30 * targetPricePerDay);
+        netCharge = targetRemainingValue - currentRemainingValue;
+        remainingDays = remainingMins / (24 * 60.0);
+      } else {
+        remainingDays = Math.max(0, remainingTimeMs / (1000 * 60 * 60 * 24));
+        currentRemainingValue = remainingDays * currentPricePerDay;
+        targetRemainingValue = remainingDays * targetPricePerDay;
+        netCharge = targetRemainingValue - currentRemainingValue;
+      }
 
       if (netCharge > 0) {
         amountDue = netCharge;
@@ -79,9 +100,16 @@ export async function POST(request) {
       } else {
         amountDue = 0;
         const credit = -netCharge;
-        extensionDays = credit / targetPricePerDay;
-        const extendedEndDate = new Date(periodEnd.getTime() + (extensionDays * 24 * 60 * 60 * 1000));
-        newPeriodEnd = extendedEndDate.toISOString();
+        if (targetPlan === 'TEST') {
+          // extend by minutes
+          const extensionMins = (credit / 1.00) * 2;
+          const extendedEndDate = new Date(periodEnd.getTime() + (extensionMins * 60 * 1000));
+          newPeriodEnd = extendedEndDate.toISOString();
+        } else {
+          extensionDays = credit / targetPricePerDay;
+          const extendedEndDate = new Date(periodEnd.getTime() + (extensionDays * 24 * 60 * 60 * 1000));
+          newPeriodEnd = extendedEndDate.toISOString();
+        }
       }
     }
 
