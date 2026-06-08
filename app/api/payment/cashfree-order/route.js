@@ -57,47 +57,92 @@ export async function POST(request) {
       });
     }
 
-    // Call Cashfree API
-    const url = isTestingEnv
-      ? 'https://sandbox.cashfree.com/pg/orders'
-      : 'https://api.cashfree.com/pg/orders';
+    const planId = `PLAN_${targetPlan}_${amount}`;
+    
+    // 1. Create or ensure the Plan exists
+    const planUrl = isTestingEnv
+      ? 'https://sandbox.cashfree.com/pg/plans'
+      : 'https://api.cashfree.com/pg/plans';
+      
+    const planPayload = {
+      plan_id: planId,
+      plan_name: `${targetPlan} Subscription Plan`,
+      plan_type: 'PERIODIC',
+      plan_currency: 'INR',
+      plan_recurring_amount: parseFloat(amount),
+      plan_max_amount: parseFloat(amount) * 10,
+      plan_max_cycles: 120, // max renewals
+      plan_intervals: targetPlan === 'TEST' ? 1 : 1, 
+      plan_interval_type: targetPlan === 'TEST' ? 'DAY' : (amount > 100000 ? 'YEAR' : 'MONTH')
+    };
 
-    const payload = {
-      order_id: orderId,
-      order_amount: parseFloat(amount),
-      order_currency: 'INR',
+    try {
+      await fetch(planUrl, {
+        method: 'POST',
+        headers: {
+          'x-client-id': appId,
+          'x-client-secret': secretKey,
+          'x-api-version': '2025-01-01',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(planPayload)
+      });
+      // We ignore the response here because if it returns 409 (Plan already exists), we can safely proceed.
+    } catch (err) {
+      console.log('Plan creation threw an exception, but proceeding assuming it might exist', err);
+    }
+
+    // 2. Create the Subscription
+    const subUrl = isTestingEnv
+      ? 'https://sandbox.cashfree.com/pg/subscriptions'
+      : 'https://api.cashfree.com/pg/subscriptions';
+
+    const subId = `SUB_${user.id}_${Date.now()}`;
+    
+    // Default expiry 10 years from now for the mandate
+    const expiryDate = new Date();
+    expiryDate.setFullYear(expiryDate.getFullYear() + 10);
+
+    const subPayload = {
+      subscription_id: subId,
+      plan_id: planId,
       customer_details: {
         customer_id: user.id.toString(),
         customer_name: user.name || 'YourCast Customer',
         customer_email: user.email,
-        customer_phone: '9999999999' // placeholder customer phone required by Cashfree
-      }
+        customer_phone: '9999999999' // placeholder customer phone
+      },
+      subscription_meta: {
+        return_url: `${request.headers.get('origin') || 'http://localhost:3000'}/dashboard/billing?status=success&sub_id=${subId}`
+      },
+      subscription_expiry_time: expiryDate.toISOString()
     };
 
-    const response = await fetch(url, {
+    const response = await fetch(subUrl, {
       method: 'POST',
       headers: {
         'x-client-id': appId,
         'x-client-secret': secretKey,
-        'x-api-version': '2023-08-01',
+        'x-api-version': '2025-01-01',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(subPayload)
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Cashfree order creation error output:', data);
-      throw new Error(data.message || 'Cashfree payment gateway order creation failed');
+      console.error('Cashfree subscription creation error output:', data);
+      throw new Error(data.message || 'Cashfree subscription creation failed');
     }
 
     return NextResponse.json({
       simulated: false,
-      order_id: data.order_id,
-      payment_session_id: data.payment_session_id,
-      order_amount: data.order_amount,
-      order_currency: data.order_currency
+      subscription_id: data.subscription_id,
+      auth_link: data.auth_link,
+      subscription_session_id: data.subscription_session_id,
+      order_amount: amount,
+      order_currency: 'INR'
     });
 
   } catch (err) {

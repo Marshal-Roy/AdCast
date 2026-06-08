@@ -49,61 +49,16 @@ function CheckoutForm() {
         await handleSimulateInstantPay();
         return;
       }
-
-      // Check if Cashfree SDK is ready
-      if (typeof window === 'undefined' || !window.Cashfree) {
-        throw new Error('Cashfree SDK is still loading or blocked by your browser. Please try the simulator option below.');
+      
+      // Cashfree Subscription Mandate Authorization
+      if (orderData.auth_link) {
+        showToast('Redirecting to Cashfree secure authorization...', 'info');
+        // Redirect user to Cashfree to approve the recurring mandate
+        window.location.href = orderData.auth_link;
+        return;
       }
-
-      // 2. Initialize Cashfree SDK
-      // Mode defaults to sandbox unless explicitly configured
-      const isProduction = false; // can be configured dynamically
-      const cashfree = window.Cashfree({
-        mode: isProduction ? 'production' : 'sandbox',
-      });
-
-      // 3. Open Cashfree Dropin Modal
-      const checkoutOptions = {
-        paymentSessionId: orderData.payment_session_id,
-        redirectTarget: '_modal', // in-context popup
-      };
-
-      cashfree.checkout(checkoutOptions).then(async (result) => {
-        if (result.error) {
-          console.error('Cashfree checkout modal error:', result.error);
-          showToast(result.error.message || 'Payment window closed or cancelled', 'error');
-          setIsProcessing(false);
-          return;
-        }
-
-        // Wait a brief period and check/process transaction in our database
-        try {
-          setIsProcessing(true);
-          const processRes = await fetch('/api/payment/process', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              amount,
-              paymentMethod: 'CASHFREE',
-              targetPlan,
-              upiDetails: { upiId: `cashfree_${orderData.order_id}@cf` }
-            })
-          });
-
-          const processData = await processRes.json();
-          if (!processRes.ok) {
-            throw new Error(processData.error || 'Payment processing failed');
-          }
-
-          showToast(`Payment of ₹${amount.toLocaleString('en-IN')} approved!`, 'success');
-          setReceipt(processData.transaction);
-          router.refresh();
-        } catch (err) {
-          showToast(err.message, 'error');
-        } finally {
-          setIsProcessing(false);
-        }
-      });
+      
+      throw new Error('Missing authorization link from payment gateway');
 
     } catch (err) {
       showToast(err.message, 'error');
