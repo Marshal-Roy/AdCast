@@ -53,11 +53,17 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Event type not specified' }, { status: 400 });
     }
 
-    // Extract common fields across different Cashfree versions
-    const orderId = data.order?.order_id || data.order_id;
-    const amount = parseFloat(data.order?.order_amount || data.order_amount || 0);
-    const customerId = data.customer_details?.customer_id || data.customer_id;
-    const paymentStatus = data.payment?.payment_status || data.payment_status || 'SUCCESS';
+    // Extract common fields across different Cashfree versions (Orders & Subscriptions)
+    const orderId = data.order?.order_id || data.subscription?.subscription_id || data.order_id || `SUB_${Date.now()}`;
+    const amount = parseFloat(
+      data.order?.order_amount || 
+      data.payment?.payment_amount || 
+      data.subscription?.plan_details?.plan_recurring_amount || 
+      data.order_amount || 
+      0
+    );
+    const customerId = data.customer_details?.customer_id || data.subscription?.customer_details?.customer_id || data.customer_id;
+    const paymentStatus = data.payment?.payment_status || data.payment_status || data.subscription?.subscription_status || 'SUCCESS';
     const cfPaymentId = data.payment?.cf_payment_id || data.cf_payment_id || `PAY_${Date.now()}`;
 
     console.log(`Processing event "${event}":`, { orderId, amount, customerId, paymentStatus });
@@ -68,11 +74,14 @@ export async function POST(request) {
       event === 'PAYMENT_SUCCESS_WEBHOOK' || 
       event === 'payment.success' || 
       event === 'subscription.charge.success' ||
+      event === 'SUBSCRIPTION_PAYMENT_SUCCESS' ||
+      (event === 'SUBSCRIPTION_STATUS_CHANGED' && paymentStatus === 'ACTIVE') ||
       event === 'success payment' ||
       event === 'success payment tdr'
     ) {
-      if (paymentStatus !== 'SUCCESS' && paymentStatus !== 'PAID') {
-        return NextResponse.json({ message: 'Event ignored: Payment status is not SUCCESS' });
+      // Allow SUCCESS, PAID (for standard orders) and ACTIVE (for subscription activations)
+      if (paymentStatus !== 'SUCCESS' && paymentStatus !== 'PAID' && paymentStatus !== 'ACTIVE') {
+        return NextResponse.json({ message: 'Event ignored: Payment/Subscription status is not SUCCESS or ACTIVE' });
       }
 
       if (!customerId) {

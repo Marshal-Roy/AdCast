@@ -50,15 +50,47 @@ function CheckoutForm() {
         return;
       }
       
-      // Cashfree Subscription Mandate Authorization
-      if (orderData.auth_link) {
-        showToast('Redirecting to Cashfree secure authorization...', 'info');
-        // Redirect user to Cashfree to approve the recurring mandate
-        window.location.href = orderData.auth_link;
-        return;
+      // Check if Cashfree SDK is ready
+      if (typeof window === 'undefined' || !window.Cashfree) {
+        throw new Error('Cashfree SDK is still loading or blocked by your browser.');
       }
-      
-      throw new Error('Missing authorization link from payment gateway');
+
+      // Initialize Cashfree SDK
+      const isProduction = false; 
+      const cashfree = window.Cashfree({
+        mode: isProduction ? 'production' : 'sandbox',
+      });
+
+      // We use the subscription_session_id but pass it as paymentSessionId for the JS SDK
+      const sessionId = orderData.subscription_session_id || orderData.payment_session_id;
+
+      if (!sessionId) {
+        throw new Error('Missing session ID from payment gateway');
+      }
+
+      const checkoutOptions = {
+        subsSessionId: sessionId,
+        redirectTarget: '_modal', // popup modal
+      };
+
+      // Ensure the SDK supports subscriptionsCheckout
+      if (typeof cashfree.subscriptionsCheckout !== 'function') {
+        throw new Error('Cashfree SDK version does not support subscriptions checkout. Please ensure v3 is loaded.');
+      }
+
+      cashfree.subscriptionsCheckout(checkoutOptions).then((result) => {
+        if (result.error) {
+          console.error('Cashfree subscription modal error:', result.error);
+          showToast(result.error.message || 'Mandate authorization window closed or cancelled', 'error');
+          setIsProcessing(false);
+          return;
+        }
+
+        // The webhook handles the actual subscription fulfillment
+        showToast('Processing your subscription setup...', 'info');
+        // Redirect to dashboard billing to check status
+        router.push('/dashboard/billing');
+      });
 
     } catch (err) {
       showToast(err.message, 'error');

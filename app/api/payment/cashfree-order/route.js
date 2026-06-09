@@ -105,7 +105,9 @@ export async function POST(request) {
 
     const subPayload = {
       subscription_id: subId,
-      plan_id: planId,
+      plan_details: {
+        plan_id: planId
+      },
       customer_details: {
         customer_id: user.id.toString(),
         customer_name: user.name || 'YourCast Customer',
