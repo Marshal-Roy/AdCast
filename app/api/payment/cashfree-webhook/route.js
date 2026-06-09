@@ -63,15 +63,17 @@ export async function POST(request) {
       0
     );
     const customerId = data.customer_details?.customer_id || data.subscription?.customer_details?.customer_id || data.customer_id;
+    const customerEmail = data.customer_details?.customer_email || data.subscription?.customer_details?.customer_email;
     const paymentStatus = data.payment?.payment_status || data.payment_status || data.subscription?.subscription_status || 'SUCCESS';
     const cfPaymentId = data.payment?.cf_payment_id || data.cf_payment_id || `PAY_${Date.now()}`;
 
-    console.log(`Processing event "${event}":`, { orderId, amount, customerId, paymentStatus });
+    console.log(`Processing event "${event}":`, { orderId, amount, customerId, customerEmail, paymentStatus });
 
     // Handle payment successes (both manual checkout & auto-pay renewals)
     if (
       event === 'ORDER_PAID' || 
       event === 'PAYMENT_SUCCESS_WEBHOOK' || 
+      event === 'PAYMENT_CHARGES_WEBHOOK' ||
       event === 'payment.success' || 
       event === 'subscription.charge.success' ||
       event === 'SUBSCRIPTION_PAYMENT_SUCCESS' ||
@@ -84,13 +86,26 @@ export async function POST(request) {
         return NextResponse.json({ message: 'Event ignored: Payment/Subscription status is not SUCCESS or ACTIVE' });
       }
 
-      if (!customerId) {
-        return NextResponse.json({ error: 'Customer ID missing in payload' }, { status: 400 });
+      // Resolve the user: try customer_id first, fall back to email lookup
+      let userId = null;
+
+      if (customerId) {
+        userId = parseInt(customerId);
+        if (isNaN(userId)) userId = null;
       }
 
-      const userId = parseInt(customerId);
-      if (isNaN(userId)) {
-        return NextResponse.json({ error: 'Invalid Customer ID' }, { status: 400 });
+      // If customer_id is null/invalid, look up user by email
+      if (!userId && customerEmail) {
+        const emailLookup = await query('SELECT id FROM users WHERE email = $1', [customerEmail.toLowerCase().trim()]);
+        if (emailLookup.rows.length > 0) {
+          userId = emailLookup.rows[0].id;
+          console.log(`🔍 Resolved user by email "${customerEmail}" → userId=${userId}`);
+        }
+      }
+
+      if (!userId) {
+        console.log(`⚠️ Could not resolve user from customer_id="${customerId}" or email="${customerEmail}"`);
+        return NextResponse.json({ message: 'Event ignored: Could not identify user from webhook payload' }, { status: 200 });
       }
 
       // Check if user exists

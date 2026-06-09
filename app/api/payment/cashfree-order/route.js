@@ -115,7 +115,7 @@ export async function POST(request) {
         customer_phone: '9999999999' // placeholder customer phone
       },
       subscription_meta: {
-        return_url: `${request.headers.get('origin') || 'http://localhost:3000'}/dashboard/billing?status=success&sub_id=${subId}`
+        return_url: `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:3000'}/api/payment/cashfree-return?status=success&sub_id=${subId}`
       },
       subscription_expiry_time: expiryDate.toISOString()
     };
