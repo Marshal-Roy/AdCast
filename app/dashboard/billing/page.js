@@ -10,6 +10,7 @@ export default function BillingPage() {
   const [payments, setPayments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // Proration Modal States
   const [prorationData, setProrationData] = useState(null);
@@ -58,6 +59,27 @@ export default function BillingPage() {
   useEffect(() => {
     loadBillingData();
   }, [router]);
+
+  const handleSyncSubscription = async () => {
+    const subscriptionId = prompt('Enter your Cashfree Subscription ID (found in Cashfree Dashboard → Subscriptions):');
+    if (!subscriptionId?.trim()) return;
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/payment/sync-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription_id: subscriptionId.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Sync failed');
+      showToast(data.message, data.synced ? 'success' : 'info');
+      if (data.synced) loadBillingData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handlePlanChangeInitiate = async (targetPlan) => {
     setIsCalculating(true);
@@ -264,9 +286,20 @@ export default function BillingPage() {
                   </button>
                 </>
               ) : (
-                <Link href="/dashboard" className="btn btn-primary">
-                  Choose a Plan
-                </Link>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Link href="/dashboard" className="btn btn-primary">
+                    Choose a Plan
+                  </Link>
+                  <button
+                    onClick={handleSyncSubscription}
+                    className="btn btn-outline"
+                    disabled={isSyncing}
+                    title="If you already paid but plan shows missing, sync from Cashfree"
+                    style={{ fontSize: '0.82rem' }}
+                  >
+                    {isSyncing ? 'Syncing...' : '🔄 Sync from Cashfree'}
+                  </button>
+                </div>
               )}
             </div>
           </div>

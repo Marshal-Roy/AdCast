@@ -140,28 +140,61 @@ export async function POST(request) {
         pricePerDay = 500.00;
       }
 
-      // ── CALCULATE PERIOD ────────────────────────────────────────────────────
-      const periodStart = paymentTime;
-      let periodEnd;
+      // ── LOOK UP LAST SUBSCRIPTION (ACTIVE OR EXPIRED) ──────────────────────
+      const lastSubRes = await query(
+        `SELECT id, status, current_period_start, current_period_end, plan
+         FROM subscriptions WHERE user_id = $1 ORDER BY id DESC LIMIT 1`,
+        [userId]
+      );
+      const lastSub = lastSubRes.rows.length > 0 ? lastSubRes.rows[0] : null;
+      const isFirstActivation = !lastSub;
 
+      // ── ACTIVE-GUARD: skip retried/duplicate webhooks for a cycle already covered ─
+      // If the user already has an ACTIVE subscription whose period_end is in the
+      // future, a retried old webhook must not overwrite it.
+      if (lastSub && lastSub.status === 'ACTIVE') {
+        const activeEnd = new Date(lastSub.current_period_end).getTime();
+        if (Date.now() < activeEnd) {
+          console.log(`⚠️ Subscription still active until ${lastSub.current_period_end} — retried webhook ignored for user ${userId}`);
+          // Still record the payment so the ledger is correct, then bail out
+          const dupTransId = cfPaymentId ? `CF_PAY_${cfPaymentId}` : `CF_SUB_${subscriptionId}_${Date.now()}`;
+          await query(
+            `INSERT INTO payments (user_id, amount, payment_method, status, transaction_id)
+             VALUES ($1, $2, 'CASHFREE', 'SUCCESS', $3) ON CONFLICT (transaction_id) DO NOTHING`,
+            [userId, amount, dupTransId]
+          );
+          return NextResponse.json({ message: 'Webhook acknowledged: subscription already active, no update needed' });
+        }
+      }
+
+      // ── CALCULATE PERIOD ────────────────────────────────────────────────────
+      // Anchor periodStart from the PREVIOUS period_end when this is a renewal.
+      // This prevents stale payment_time from retried webhooks creating an
+      // already-expired subscription period.
+      const now = new Date();
+      let periodStart;
+
+      if (lastSub && new Date(lastSub.current_period_end) > new Date(now.getTime() - 48 * 60 * 60 * 1000)) {
+        // Renewal: start from where last period ended (max with now to avoid going backwards)
+        periodStart = new Date(Math.max(new Date(lastSub.current_period_end).getTime(), now.getTime()));
+        console.log(`🔄 Renewal anchored from previous period_end: ${lastSub.current_period_end}`);
+      } else {
+        // First activation OR gap > 48h: start from max(payment_time, now)
+        periodStart = new Date(Math.max(paymentTime.getTime(), now.getTime()));
+        console.log(`🆕 Period anchored from max(paymentTime, now): ${periodStart.toISOString()}`);
+      }
+
+      let periodEnd;
       if (plan === 'TEST') {
         periodEnd = new Date(periodStart.getTime() + (24 * 60 * 60 * 1000)); // 1 day
       } else if (plan === 'STARTER') {
         periodEnd = new Date(periodStart.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 days
       } else {
-        // PRO: monthly or yearly based on amount
         const durationDays = amount > 100000 ? 365 : 30;
         periodEnd = new Date(periodStart.getTime() + (durationDays * 24 * 60 * 60 * 1000));
       }
 
-      // ── CHECK IF THIS IS FIRST ACTIVATION OR A RENEWAL ─────────────────────
-      const existingSubRes = await query(
-        `SELECT id, plan FROM subscriptions WHERE user_id = $1 AND status = 'ACTIVE' ORDER BY id DESC LIMIT 1`,
-        [userId]
-      );
-      const isFirstActivation = existingSubRes.rows.length === 0;
-
-      // Expire existing active subscriptions
+      // Expire any existing active subscription before inserting new one
       await query(
         "UPDATE subscriptions SET status = 'EXPIRED' WHERE user_id = $1 AND status = 'ACTIVE'",
         [userId]
