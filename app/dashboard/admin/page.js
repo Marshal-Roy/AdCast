@@ -13,9 +13,15 @@ export default function AdminDashboardPage() {
   const [isActioning, setIsActioning] = useState(false);
 
   // Cashfree Charge Simulator States
+  const [simulatorTab, setSimulatorTab] = useState('api'); // 'api' or 'webhook'
   const [simSubId, setSimSubId] = useState('');
   const [simAmount, setSimAmount] = useState('500');
   const [isSimulating, setIsSimulating] = useState(false);
+
+  // Webhook Simulator States
+  const [webSubId, setWebSubId] = useState('');
+  const [webUserId, setWebUserId] = useState('');
+  const [webAmount, setWebAmount] = useState('1');
 
   // Custom Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState({
@@ -108,6 +114,52 @@ export default function AdminDashboardPage() {
       }
       showToast('⚡ Charge successfully triggered on Cashfree! Webhook will update shortly.', 'success');
       setSimSubId('');
+    } catch (err) {
+      showToast(`❌ Simulation failed: ${err.message}`, 'error');
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const handleSimulateWebhook = async (e) => {
+    e.preventDefault();
+    if (!webSubId.trim() || !webUserId.trim()) {
+      showToast('❌ Subscription ID and User ID are required', 'error');
+      return;
+    }
+    setIsSimulating(true);
+    try {
+      const mockCfPaymentId = Math.floor(10000000 + Math.random() * 90000000).toString();
+      const mockPayload = {
+        event: 'SUBSCRIPTION_PAYMENT_SUCCESS',
+        data: {
+          subscription: {
+            subscription_id: webSubId.trim()
+          },
+          payment: {
+            cf_payment_id: mockCfPaymentId,
+            payment_amount: parseFloat(webAmount || '1'),
+            payment_status: 'SUCCESS',
+            payment_time: new Date().toISOString()
+          },
+          customer_details: {
+            customer_id: webUserId.trim()
+          }
+        }
+      };
+
+      const res = await fetch('/api/payment/cashfree-webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mockPayload)
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to simulate webhook processing');
+      }
+      showToast(`✅ Webhook simulation complete: "${data.message || 'Payment success processed'}"`, 'success');
+      await fetchCustomers(); // Reload customer list to show updated dates
     } catch (err) {
       showToast(`❌ Simulation failed: ${err.message}`, 'error');
     } finally {
@@ -274,44 +326,130 @@ export default function AdminDashboardPage() {
 
         {/* Cashfree Subscription Charge Simulator */}
         <div className="dash-card" style={{ marginBottom: '32px', background: 'linear-gradient(135deg, #0b2b5c, #163e70)', color: 'white', border: 'none' }}>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            ⚡ Cashfree Sandbox Subscription Charge Simulator
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            ⚡ Cashfree Subscription Charge Simulator
           </h3>
-          <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '24px' }}>
-            Simulate a renewal charge directly via Cashfree's Sandbox PG. This will trigger a test transaction payment event, extend the user's active billing cycle, and update the ledger.
-          </p>
 
-          <form onSubmit={handleSimulateCharge} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <div style={{ flex: '1', minWidth: '240px' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Subscription ID</label>
-              <input
-                type="text"
-                placeholder="e.g. SUB_12_1781937404933"
-                value={simSubId}
-                onChange={(e) => setSimSubId(e.target.value)}
-                style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', background: 'rgba(255,255,255,0.08)', color: 'white', outline: 'none' }}
-              />
-            </div>
-            
-            <div style={{ width: '120px' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Amount (₹)</label>
-              <input
-                type="number"
-                value={simAmount}
-                onChange={(e) => setSimAmount(e.target.value)}
-                style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', background: 'rgba(255,255,255,0.08)', color: 'white', outline: 'none' }}
-              />
-            </div>
-
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px', marginBottom: '20px' }}>
             <button
-              type="submit"
-              disabled={isSimulating}
-              className="btn btn-primary"
-              style={{ background: '#3b82f6', padding: '11px 24px', border: 'none', fontWeight: 600, color: 'white' }}
+              onClick={() => setSimulatorTab('api')}
+              style={{
+                background: simulatorTab === 'api' ? '#3b82f6' : 'transparent',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: 'var(--radius-md)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '0.85rem'
+              }}
             >
-              {isSimulating ? 'Processing...' : 'Trigger Charge'}
+              🔑 Cashfree API (On-Demand Plans)
             </button>
-          </form>
+            <button
+              onClick={() => setSimulatorTab('webhook')}
+              style={{
+                background: simulatorTab === 'webhook' ? '#3b82f6' : 'transparent',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: 'var(--radius-md)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '0.85rem'
+              }}
+            >
+              🔄 Mock Webhook (Periodic & Sandbox Testing)
+            </button>
+          </div>
+
+          {simulatorTab === 'api' ? (
+            <div>
+              <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '24px' }}>
+                Simulate a renewal charge directly via Cashfree's Sandbox PG. This calls the Cashfree subscriptions payment API (requires an On-Demand plan).
+              </p>
+              <form onSubmit={handleSimulateCharge} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div style={{ flex: '1', minWidth: '240px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Subscription ID</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SUB_12_1781937404933"
+                    value={simSubId}
+                    onChange={(e) => setSimSubId(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', background: 'rgba(255,255,255,0.08)', color: 'white', outline: 'none' }}
+                  />
+                </div>
+                
+                <div style={{ width: '120px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Amount (₹)</label>
+                  <input
+                    type="number"
+                    value={simAmount}
+                    onChange={(e) => setSimAmount(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', background: 'rgba(255,255,255,0.08)', color: 'white', outline: 'none' }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSimulating}
+                  className="btn btn-primary"
+                  style={{ background: '#3b82f6', padding: '11px 24px', border: 'none', fontWeight: 600, color: 'white' }}
+                >
+                  {isSimulating ? 'Processing...' : 'Trigger API Charge'}
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div>
+              <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '24px' }}>
+                Simulate a mock <code>SUBSCRIPTION_PAYMENT_SUCCESS</code> webhook payload sent to your backend. Great for testing <strong>Periodic</strong> subscription renewals in Sandbox instantly.
+              </p>
+              <form onSubmit={handleSimulateWebhook} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div style={{ flex: '1', minWidth: '200px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Subscription ID</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SUB_9_1781937792284"
+                    value={webSubId}
+                    onChange={(e) => setWebSubId(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', background: 'rgba(255,255,255,0.08)', color: 'white', outline: 'none' }}
+                  />
+                </div>
+                
+                <div style={{ width: '100px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>User ID</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 9"
+                    value={webUserId}
+                    onChange={(e) => setWebUserId(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', background: 'rgba(255,255,255,0.08)', color: 'white', outline: 'none' }}
+                  />
+                </div>
+
+                <div style={{ width: '120px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Amount (₹)</label>
+                  <input
+                    type="number"
+                    value={webAmount}
+                    onChange={(e) => setWebAmount(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', background: 'rgba(255,255,255,0.08)', color: 'white', outline: 'none' }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSimulating}
+                  className="btn btn-primary"
+                  style={{ background: '#10b981', padding: '11px 24px', border: 'none', fontWeight: 600, color: 'white' }}
+                >
+                  {isSimulating ? 'Processing...' : 'Simulate Webhook Success'}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
 
         {/* Customer Registry Management */}
