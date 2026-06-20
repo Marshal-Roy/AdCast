@@ -26,11 +26,17 @@ const path = `/pg/subscriptions/pay`;
 
 const chargeId = `CHG_${Date.now()}`;
 
+// Format current date to YYYY-MM-DDThh:mm:ss
+const now = new Date();
+const pad = (n) => n.toString().padStart(2, '0');
+const paymentScheduleDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
 const payload = JSON.stringify({
   subscription_id: subId,
   payment_id: chargeId,
   payment_amount: chargeAmount,
   payment_type: 'CHARGE',
+  payment_schedule_date: paymentScheduleDate,
   payment_remarks: 'Simulated subscription charge via developer helper script'
 });
 

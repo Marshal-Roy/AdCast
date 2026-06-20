@@ -53,15 +53,21 @@ export async function POST(request) {
     const host = isProduction ? 'api.cashfree.com' : 'sandbox.cashfree.com';
     const chargeId = `CHG_${Date.now()}`;
 
+    // Format current date to YYYY-MM-DDThh:mm:ss
+    const now = new Date();
+    const pad = (n) => n.toString().padStart(2, '0');
+    const paymentScheduleDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
     const payload = {
       subscription_id: subscriptionId,
       payment_id: chargeId,
       payment_amount: chargeAmount,
       payment_type: 'CHARGE',
+      payment_schedule_date: paymentScheduleDate,
       payment_remarks: 'Simulated renewal charge from Admin Dashboard'
     };
 
-    console.log(`🔌 Admin API contacting Cashfree (${host}) to charge: ${subscriptionId}`);
+    console.log(`🔌 Admin API contacting Cashfree (${host}) to charge: ${subscriptionId} | Date: ${paymentScheduleDate}`);
 
     const cfRes = await fetch(`https://${host}/pg/subscriptions/pay`, {
       method: 'POST',
