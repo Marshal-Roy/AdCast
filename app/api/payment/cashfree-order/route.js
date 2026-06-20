@@ -111,8 +111,8 @@ export async function POST(request) {
       customer_details: {
         customer_id: user.id.toString(),
         customer_name: user.name || 'YourCast Customer',
-        customer_email: user.email,
-        customer_phone: '9999999999' // placeholder customer phone
+        customer_email: user.email || 'helloyourcast@gmail.com',
+        customer_phone: '7570000649' // Real contact number to prevent mandate creation rejection
       },
       subscription_meta: {
         return_url: `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:3000'}/api/payment/cashfree-return?status=success&sub_id=${subId}`

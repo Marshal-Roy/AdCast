@@ -83,8 +83,13 @@ export async function POST(request) {
       pricePerDay = 500.00;
     }
 
-    // 5. If Cashfree says ACTIVE but our DB doesn't have an active subscription → fix it
-    if (cfStatus === 'ACTIVE') {
+    // 5. Best Practice for Indian eNACH/UPI Mandates:
+    // When using Bank Accounts for subscriptions, NPCI mandates take T+3 days to approve.
+    // The status becomes "BANK_APPROVAL_PENDING". Standard practice is to grant PROVISIONAL
+    // access immediately upon successful authorization.
+    const isProvisionable = cfStatus === 'ACTIVE' || cfStatus === 'BANK_APPROVAL_PENDING';
+
+    if (isProvisionable) {
       const activeSubRes = await query(
         `SELECT id, status, current_period_end FROM subscriptions
          WHERE user_id = $1 AND status = 'ACTIVE' ORDER BY id DESC LIMIT 1`,

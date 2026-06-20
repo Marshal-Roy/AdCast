@@ -78,7 +78,7 @@ function CheckoutForm() {
         throw new Error('Cashfree SDK version does not support subscriptions checkout. Please ensure v3 is loaded.');
       }
 
-      cashfree.subscriptionsCheckout(checkoutOptions).then((result) => {
+      cashfree.subscriptionsCheckout(checkoutOptions).then(async (result) => {
         if (result.error) {
           console.error('Cashfree subscription modal error:', result.error);
           showToast(result.error.message || 'Mandate authorization window closed or cancelled', 'error');
@@ -86,8 +86,22 @@ function CheckoutForm() {
           return;
         }
 
-        // The webhook handles the actual subscription fulfillment
         showToast('Processing your subscription setup...', 'info');
+        
+        // Best Practice: Proactively sync status immediately upon modal close!
+        // Instead of waiting blindly for the webhook which may lag, we query Cashfree directly.
+        try {
+          if (orderData.subscription_id) {
+            await fetch('/api/payment/sync-subscription', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subscription_id: orderData.subscription_id })
+            });
+          }
+        } catch (syncErr) {
+          console.warn('Sync attempt failed, relying on webhook', syncErr);
+        }
+
         // Redirect to dashboard billing to check status
         router.push('/dashboard/billing');
       });

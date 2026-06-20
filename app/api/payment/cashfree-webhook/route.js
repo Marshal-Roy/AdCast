@@ -79,10 +79,17 @@ export async function POST(request) {
       event === 'payment.success' ||
       event === 'subscription.charge.success' ||
       event === 'success payment' ||
-      event === 'success payment tdr';
+      event === 'success payment tdr' ||
+      event === 'SUBSCRIPTION_STATUS_CHANGED';
 
     if (isPaymentSuccess) {
-      if (paymentStatus !== 'SUCCESS' && paymentStatus !== 'PAID' && paymentStatus !== 'ACTIVE') {
+      const isValidState = 
+        paymentStatus === 'SUCCESS' || 
+        paymentStatus === 'PAID' || 
+        paymentStatus === 'ACTIVE' || 
+        paymentStatus === 'BANK_APPROVAL_PENDING';
+
+      if (!isValidState) {
         return NextResponse.json({ message: `Event ignored: Payment status is "${paymentStatus}", not a success state` });
       }
 
