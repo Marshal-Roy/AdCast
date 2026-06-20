@@ -12,6 +12,11 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isActioning, setIsActioning] = useState(false);
 
+  // Cashfree Charge Simulator States
+  const [simSubId, setSimSubId] = useState('');
+  const [simAmount, setSimAmount] = useState('500');
+  const [isSimulating, setIsSimulating] = useState(false);
+
   // Custom Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -78,6 +83,35 @@ export default function AdminDashboardPage() {
       }
     } catch (err) {
       showToast('Error logging out', 'error');
+    }
+  };
+
+  const handleSimulateCharge = async (e) => {
+    e.preventDefault();
+    if (!simSubId.trim()) {
+      showToast('❌ Subscription ID is required', 'error');
+      return;
+    }
+    setIsSimulating(true);
+    try {
+      const res = await fetch('/api/admin/charge-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscriptionId: simSubId.trim(),
+          amount: parseFloat(simAmount || '500')
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to simulate subscription charge');
+      }
+      showToast('⚡ Charge successfully triggered on Cashfree! Webhook will update shortly.', 'success');
+      setSimSubId('');
+    } catch (err) {
+      showToast(`❌ Simulation failed: ${err.message}`, 'error');
+    } finally {
+      setIsSimulating(false);
     }
   };
 
@@ -237,6 +271,48 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         </section>
+
+        {/* Cashfree Subscription Charge Simulator */}
+        <div className="dash-card" style={{ marginBottom: '32px', background: 'linear-gradient(135deg, #0b2b5c, #163e70)', color: 'white', border: 'none' }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            ⚡ Cashfree Sandbox Subscription Charge Simulator
+          </h3>
+          <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '24px' }}>
+            Simulate a renewal charge directly via Cashfree's Sandbox PG. This will trigger a test transaction payment event, extend the user's active billing cycle, and update the ledger.
+          </p>
+
+          <form onSubmit={handleSimulateCharge} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ flex: '1', minWidth: '240px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Subscription ID</label>
+              <input
+                type="text"
+                placeholder="e.g. SUB_12_1781937404933"
+                value={simSubId}
+                onChange={(e) => setSimSubId(e.target.value)}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', background: 'rgba(255,255,255,0.08)', color: 'white', outline: 'none' }}
+              />
+            </div>
+            
+            <div style={{ width: '120px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Amount (₹)</label>
+              <input
+                type="number"
+                value={simAmount}
+                onChange={(e) => setSimAmount(e.target.value)}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', background: 'rgba(255,255,255,0.08)', color: 'white', outline: 'none' }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSimulating}
+              className="btn btn-primary"
+              style={{ background: '#3b82f6', padding: '11px 24px', border: 'none', fontWeight: 600, color: 'white' }}
+            >
+              {isSimulating ? 'Processing...' : 'Trigger Charge'}
+            </button>
+          </form>
+        </div>
 
         {/* Customer Registry Management */}
         <div className="dash-card">
