@@ -45,12 +45,14 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }
 
-    const event = payload.event || payload.type;
-    const data = payload.data || payload;
-
-    if (!event) {
+    const rawEvent = payload.event || payload.type;
+    if (!rawEvent) {
       return NextResponse.json({ error: 'Event type not specified' }, { status: 400 });
     }
+
+    // Normalize event to uppercase with underscores (e.g. "subscription.cancelled" -> "SUBSCRIPTION_CANCELLED", "success payment" -> "SUCCESS_PAYMENT")
+    const event = rawEvent.trim().toUpperCase().replace(/[\s\.\-]+/g, '_');
+    const data = payload.data || payload;
 
     // 3. Extract fields — prefer cf_payment_id as the unique charge identifier
     const cfPaymentId = data.payment?.cf_payment_id || data.cf_payment_id;
@@ -68,7 +70,7 @@ export async function POST(request) {
     // Use actual payment time from Cashfree, not server receive time
     const paymentTime = data.payment?.payment_time ? new Date(data.payment.payment_time) : new Date();
 
-    console.log(`Processing event "${event}":`, { cfPaymentId, subscriptionId, amount, customerId, customerEmail, paymentStatus });
+    console.log(`Processing normalized event "${event}" (raw: "${rawEvent}"):`, { cfPaymentId, subscriptionId, amount, customerId, customerEmail, paymentStatus });
 
     // ─── PAYMENT SUCCESS HANDLER ─────────────────────────────────────────────
     const isPaymentSuccess =
@@ -76,10 +78,8 @@ export async function POST(request) {
       event === 'PAYMENT_CHARGES_WEBHOOK' ||
       event === 'ORDER_PAID' ||
       event === 'PAYMENT_SUCCESS_WEBHOOK' ||
-      event === 'payment.success' ||
-      event === 'subscription.charge.success' ||
-      event === 'success payment' ||
-      event === 'success payment tdr' ||
+      event === 'SUCCESS_PAYMENT' ||
+      event === 'SUCCESS_PAYMENT_TDR' ||
       event === 'SUBSCRIPTION_STATUS_CHANGED';
 
     if (isPaymentSuccess) {
@@ -270,7 +270,7 @@ export async function POST(request) {
     }
 
     // ─── SUBSCRIPTION PAYMENT FAILED ─────────────────────────────────────────
-    if (event === 'SUBSCRIPTION_PAYMENT_FAILED' || event === 'subscription.payment.failed') {
+    if (event === 'SUBSCRIPTION_PAYMENT_FAILED') {
       console.log(`⚠️ Subscription payment FAILED for subscription: ${subscriptionId}`);
       // Do not expire the subscription on failure — Cashfree retries automatically (1+3 policy)
       return NextResponse.json({ message: 'Subscription payment failure noted. Awaiting Cashfree retry.' });
@@ -278,9 +278,10 @@ export async function POST(request) {
 
     // ─── SUBSCRIPTION CANCELLED ───────────────────────────────────────────────
     if (
-      event === 'subscription.cancelled' ||
-      event === 'subscription.deactivated' ||
-      event === 'subscription.cancel'
+      event === 'SUBSCRIPTION_CANCELLED' ||
+      event === 'SUBSCRIPTION_PAYMENT_CANCELLED' ||
+      event === 'SUBSCRIPTION_DEACTIVATED' ||
+      event === 'SUBSCRIPTION_CANCEL'
     ) {
       if (customerId) {
         await query(
