@@ -26,11 +26,11 @@ const path = `/pg/subscriptions/pay`;
 
 const chargeId = `CHG_${Date.now()}`;
 
-// Calculate future date (15 minutes from now) in Indian Standard Time (IST, UTC+05:30)
-// to prevent server-client timezone mismatch issues with Cashfree's servers.
+// Calculate future date (25 hours from now) in Indian Standard Time (IST, UTC+05:30).
+// UPI Autopay / NPCI guidelines require scheduling at least 24 hours in advance to allow for pre-debit notifications.
 const localNow = new Date();
 const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC + 5:30
-const futureIst = new Date(localNow.getTime() + istOffset + 15 * 60 * 1000); // 15 mins in the future
+const futureIst = new Date(localNow.getTime() + istOffset + 25 * 60 * 60 * 1000); // 25 hours in the future
 
 const pad = (n) => n.toString().padStart(2, '0');
 const year = futureIst.getUTCFullYear();
