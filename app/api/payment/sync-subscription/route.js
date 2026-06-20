@@ -47,8 +47,8 @@ export async function POST(request) {
     const secretKey = process.env.CASHFREE_SECRET_KEY;
     const isProduction = process.env.CASHFREE_ENV === 'production';
     const baseUrl = isProduction
-      ? 'https://api.cashfree.com/api/v2'
-      : 'https://sandbox.cashfree.com/api/v2';
+      ? 'https://api.cashfree.com/pg'
+      : 'https://sandbox.cashfree.com/pg';
 
     const cfRes = await fetch(`${baseUrl}/subscriptions/${subscription_id}`, {
       method: 'GET',
