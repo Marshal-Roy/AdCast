@@ -53,9 +53,21 @@ export async function POST(request) {
     const host = isProduction ? 'api.cashfree.com' : 'sandbox.cashfree.com';
     const chargeId = `CHG_${Date.now()}`;
 
-    // Format future date (10 minutes from now) to ISO8601 with Z (e.g. YYYY-MM-DDThh:mm:ssZ)
-    const futureDate = new Date(Date.now() + 10 * 60 * 1000);
-    const paymentScheduleDate = futureDate.toISOString().split('.')[0] + 'Z';
+    // Calculate future date (15 minutes from now) in Indian Standard Time (IST, UTC+05:30)
+    // to prevent server-client timezone mismatch issues with Cashfree's servers.
+    const localNow = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC + 5:30
+    const futureIst = new Date(localNow.getTime() + istOffset + 15 * 60 * 1000); // 15 mins in the future
+
+    const pad = (n) => n.toString().padStart(2, '0');
+    const year = futureIst.getUTCFullYear();
+    const month = pad(futureIst.getUTCMonth() + 1);
+    const date = pad(futureIst.getUTCDate());
+    const hours = pad(futureIst.getUTCHours());
+    const minutes = pad(futureIst.getUTCMinutes());
+    const seconds = pad(futureIst.getUTCSeconds());
+
+    const paymentScheduleDate = `${year}-${month}-${date}T${hours}:${minutes}:${seconds}+05:30`;
 
     const payload = {
       subscription_id: subscriptionId,
@@ -66,7 +78,8 @@ export async function POST(request) {
       payment_remarks: 'Simulated renewal charge from Admin Dashboard'
     };
 
-    console.log(`🔌 Admin API contacting Cashfree (${host}) to charge: ${subscriptionId} | Date: ${paymentScheduleDate}`);
+    console.log(`🔌 Admin API contacting Cashfree (${host}) to charge:`);
+    console.log(JSON.stringify(payload, null, 2));
 
     const cfRes = await fetch(`https://${host}/pg/subscriptions/pay`, {
       method: 'POST',
