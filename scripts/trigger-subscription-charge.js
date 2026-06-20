@@ -22,15 +22,16 @@ if (!appId || appId === 'your_cashfree_app_id' || !secretKey || secretKey === 'y
 
 // Subscriptions Charge API uses the standard endpoint base
 const host = isProduction ? 'api.cashfree.com' : 'sandbox.cashfree.com';
-const path = `/api/v2/subscriptions/charge`;
+const path = `/pg/subscriptions/pay`;
 
 const chargeId = `CHG_${Date.now()}`;
 
 const payload = JSON.stringify({
   subscription_id: subId,
-  amount: chargeAmount,
-  charge_id: chargeId,
-  remarks: 'Simulated subscription charge via developer helper script'
+  payment_id: chargeId,
+  payment_amount: chargeAmount,
+  payment_type: 'CHARGE',
+  payment_remarks: 'Simulated subscription charge via developer helper script'
 });
 
 console.log(`🔌 Connecting to Cashfree Sandbox (${host})...`);
