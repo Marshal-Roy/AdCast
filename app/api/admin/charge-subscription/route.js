@@ -53,10 +53,8 @@ export async function POST(request) {
     const host = isProduction ? 'api.cashfree.com' : 'sandbox.cashfree.com';
     const chargeId = `CHG_${Date.now()}`;
 
-    // Format current date to YYYY-MM-DDThh:mm:ss
-    const now = new Date();
-    const pad = (n) => n.toString().padStart(2, '0');
-    const paymentScheduleDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    // Format current date to ISO8601 with Z (e.g. YYYY-MM-DDThh:mm:ssZ)
+    const paymentScheduleDate = new Date().toISOString().split('.')[0] + 'Z';
 
     const payload = {
       subscription_id: subscriptionId,
