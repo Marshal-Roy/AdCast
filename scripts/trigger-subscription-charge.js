@@ -26,8 +26,9 @@ const path = `/pg/subscriptions/pay`;
 
 const chargeId = `CHG_${Date.now()}`;
 
-// Format current date to ISO8601 with Z (e.g. YYYY-MM-DDThh:mm:ssZ)
-const paymentScheduleDate = new Date().toISOString().split('.')[0] + 'Z';
+// Format future date (10 minutes from now) to ISO8601 with Z (e.g. YYYY-MM-DDThh:mm:ssZ)
+const futureDate = new Date(Date.now() + 10 * 60 * 1000);
+const paymentScheduleDate = futureDate.toISOString().split('.')[0] + 'Z';
 
 const payload = JSON.stringify({
   subscription_id: subId,
