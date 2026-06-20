@@ -56,7 +56,13 @@ export async function POST(request) {
 
     // 3. Extract fields — prefer cf_payment_id as the unique charge identifier
     const cfPaymentId = data.payment?.cf_payment_id || data.cf_payment_id;
-    const subscriptionId = data.subscription?.subscription_id || data.order?.order_id || data.order_id;
+    const subscriptionId = 
+      data.subscription?.subscription_id || 
+      data.subscription_id || 
+      payload.subscription_id || 
+      data.order?.order_id || 
+      data.order_id || 
+      (payload.data && (payload.data.subscription_id || payload.data.subscription?.subscription_id));
     const amount = parseFloat(
       data.payment?.payment_amount ||
       data.order?.order_amount ||
@@ -241,13 +247,16 @@ export async function POST(request) {
       // ── RECORD PAYMENT ────────────────────────────────────────────────────
       // Use cf_payment_id as the unique transaction key. This guarantees one payment
       // record per actual bank charge, even if multiple webhook events fire.
-      const transactionId = cfPaymentId ? `CF_PAY_${cfPaymentId}` : `CF_SUB_${subscriptionId}_${Date.now()}`;
-      await query(
-        `INSERT INTO payments (user_id, amount, payment_method, status, transaction_id) 
-         VALUES ($1, $2, 'CASHFREE', 'SUCCESS', $3) 
-         ON CONFLICT (transaction_id) DO NOTHING`,
-        [userId, amount, transactionId]
-      );
+      // We only insert if amount > 0 to avoid recording zero-amount status updates as financial transactions.
+      if (amount > 0) {
+        const transactionId = cfPaymentId ? `CF_PAY_${cfPaymentId}` : `CF_SUB_${subscriptionId || 'UNKNOWN'}_${Date.now()}`;
+        await query(
+          `INSERT INTO payments (user_id, amount, payment_method, status, transaction_id) 
+           VALUES ($1, $2, 'CASHFREE', 'SUCCESS', $3) 
+           ON CONFLICT (transaction_id) DO NOTHING`,
+          [userId, amount, transactionId]
+        );
+      }
 
       console.log(`✅ Webhook provisioned ${plan} plan for user ${userId} | Period: ${periodStart.toISOString()} → ${periodEnd.toISOString()} | isRenewal=${!isFirstActivation}`);
       return NextResponse.json({ message: 'Webhook processed: subscription provisioned successfully' });
