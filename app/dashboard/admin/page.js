@@ -74,8 +74,7 @@ export default function AdminDashboardPage() {
       const res = await fetch('/api/auth/logout', { method: 'POST' });
       if (res.ok) {
         showToast('Logged out successfully', 'success');
-        router.push('/');
-        router.refresh();
+        window.location.href = '/';
       }
     } catch (err) {
       showToast('Error logging out', 'error');

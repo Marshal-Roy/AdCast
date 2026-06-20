@@ -48,7 +48,7 @@ export default function LandingPage() {
         showToast('Logged out successfully', 'success');
         setUser(null);
         setIsAuthenticated(false);
-        router.refresh();
+        window.location.href = '/';
       }
     } catch (err) {
       showToast('Error logging out', 'error');
@@ -339,21 +339,21 @@ export default function LandingPage() {
                   <div style={{ background: 'var(--primary-light)', minWidth: '48px', height: '48px', borderRadius: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>📍</div>
                   <div>
                     <strong>HQ / Service hub</strong>
-                    <br /><span style={{ color: 'var(--text-muted)' }}>Mumbai, India | also serving Delhi, Bangalore</span>
+                    <br /><span style={{ color: 'var(--text-muted)' }}>Vibhuti Khand, Gomti Nagar, Lucknow, Uttar Pradesh 226010</span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '16px', marginBottom: '28px', alignItems: 'flex-start' }}>
                   <div style={{ background: 'var(--primary-light)', minWidth: '48px', height: '48px', borderRadius: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>📱</div>
                   <div>
                     <strong>Phone / WhatsApp</strong>
-                    <br /><span style={{ color: 'var(--text-muted)' }}>+91 98765 43210</span>
+                    <br /><span style={{ color: 'var(--text-muted)' }}>+91 75700 00649</span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '16px', marginBottom: '28px', alignItems: 'flex-start' }}>
                   <div style={{ background: 'var(--primary-light)', minWidth: '48px', height: '48px', borderRadius: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>✉️</div>
                   <div>
                     <strong>Email</strong>
-                    <br /><span style={{ color: 'var(--text-muted)' }}><a href="mailto:hello@yourcast.com" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>hello@yourcast.com</a></span>
+                    <br /><span style={{ color: 'var(--text-muted)' }}><a href="mailto:helloyourcast@gmail.com" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>helloyourcast@gmail.com</a></span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '16px', marginBottom: '28px', alignItems: 'flex-start' }}>
@@ -375,7 +375,7 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
-
+        
         {/* Special request prompt */}
         <section style={{ background: 'var(--primary-light)', padding: '48px 0', borderBottom: 'none' }}>
           <div className="container" style={{ textAlign: 'center' }}>
@@ -383,7 +383,7 @@ export default function LandingPage() {
             <p style={{ margin: '12px auto 24px', maxWidth: '600px', color: 'var(--text-muted)' }}>
               From drone-led banners to 3D anamorphic screens – we build custom ad solutions.
             </p>
-            <a href="mailto:hello@yourcast.com?subject=Special Campaign Request" className="btn btn-primary btn-large" style={{ display: 'inline-flex', textDecoration: 'none', alignItems: 'center', justifyContent: 'center' }}>
+            <a href="mailto:helloyourcast@gmail.com?subject=Special Campaign Request" className="btn btn-primary btn-large" style={{ display: 'inline-flex', textDecoration: 'none', alignItems: 'center', justifyContent: 'center' }}>
               📢 Talk to our team now
             </a>
           </div>
