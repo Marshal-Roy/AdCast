@@ -79,14 +79,15 @@ export async function POST(request) {
     console.log(`Processing normalized event "${event}" (raw: "${rawEvent}"):`, { cfPaymentId, subscriptionId, amount, customerId, customerEmail, paymentStatus });
 
     // ─── PAYMENT SUCCESS HANDLER ─────────────────────────────────────────────
+    // NOTE: SUBSCRIPTION_STATUS_CHANGED is intentionally excluded here.
+    // It is a status-only event with no payment amount and is handled separately below.
     const isPaymentSuccess =
       event === 'SUBSCRIPTION_PAYMENT_SUCCESS' ||
       event === 'PAYMENT_CHARGES_WEBHOOK' ||
       event === 'ORDER_PAID' ||
       event === 'PAYMENT_SUCCESS_WEBHOOK' ||
       event === 'SUCCESS_PAYMENT' ||
-      event === 'SUCCESS_PAYMENT_TDR' ||
-      event === 'SUBSCRIPTION_STATUS_CHANGED';
+      event === 'SUCCESS_PAYMENT_TDR';
 
     if (isPaymentSuccess) {
       const isValidState = 
@@ -163,20 +164,16 @@ export async function POST(request) {
       const isFirstActivation = !lastSub;
 
       // ── ACTIVE-GUARD: skip retried/duplicate webhooks for a cycle already covered ─
-      // If the user already has an ACTIVE subscription whose period_end is in the
-      // future, a retried old webhook must not overwrite it.
-      if (lastSub && lastSub.status === 'ACTIVE') {
+      // A webhook is a DUPLICATE (retried delivery of a past event) only if it has
+      // NO unique cf_payment_id — meaning Cashfree cannot link it to a distinct charge.
+      // Legitimate renewal webhooks always carry a new cf_payment_id (already deduped
+      // above by the idempotency check), so we must NOT block them here even if the
+      // current period hasn't expired yet (Cashfree charges ~24h before period end).
+      if (lastSub && lastSub.status === 'ACTIVE' && !cfPaymentId) {
         const activeEnd = new Date(lastSub.current_period_end).getTime();
         if (Date.now() < activeEnd) {
-          console.log(`⚠️ Subscription still active until ${lastSub.current_period_end} — retried webhook ignored for user ${userId}`);
-          // Still record the payment so the ledger is correct, then bail out
-          const dupTransId = cfPaymentId ? `CF_PAY_${cfPaymentId}` : `CF_SUB_${subscriptionId}_${Date.now()}`;
-          await query(
-            `INSERT INTO payments (user_id, amount, payment_method, status, transaction_id)
-             VALUES ($1, $2, 'CASHFREE', 'SUCCESS', $3) ON CONFLICT (transaction_id) DO NOTHING`,
-            [userId, amount, dupTransId]
-          );
-          return NextResponse.json({ message: 'Webhook acknowledged: subscription already active, no update needed' });
+          console.log(`⚠️ No cf_payment_id — treating as duplicate webhook for user ${userId}. Subscription still active until ${lastSub.current_period_end}.`);
+          return NextResponse.json({ message: 'Webhook acknowledged: duplicate event ignored (no cf_payment_id)' });
         }
       }
 
@@ -263,17 +260,31 @@ export async function POST(request) {
     }
 
     // ─── SUBSCRIPTION STATUS CHANGED ─────────────────────────────────────────
+    // This is a status-only event. It carries NO payment amount.
+    // Only act on terminal states (CANCELLED / EXPIRED / HALTED).
+    // ACTIVE status here does NOT mean a new payment was collected — ignore it.
     if (event === 'SUBSCRIPTION_STATUS_CHANGED') {
       const subStatus = data.subscription?.subscription_status;
-      if (subStatus === 'CANCELLED' || subStatus === 'EXPIRED') {
-        const cId = customerId || (customerEmail ? await query('SELECT id FROM users WHERE email = $1', [customerEmail]).then(r => r.rows[0]?.id) : null);
+      console.log(`📋 SUBSCRIPTION_STATUS_CHANGED received: status=${subStatus}, subscriptionId=${subscriptionId}`);
+
+      if (subStatus === 'CANCELLED' || subStatus === 'EXPIRED' || subStatus === 'HALTED') {
+        let cId = customerId ? parseInt(customerId) : null;
+        if (!cId && customerEmail) {
+          const lookup = await query('SELECT id FROM users WHERE email = $1', [customerEmail.toLowerCase().trim()]);
+          cId = lookup.rows[0]?.id || null;
+        }
         if (cId) {
           await query(
             "UPDATE subscriptions SET status = 'CANCELLED' WHERE user_id = $1 AND status = 'ACTIVE'",
-            [parseInt(cId)]
+            [cId]
           );
-          console.log(`✅ Subscription cancelled for user ${cId}`);
+          console.log(`✅ Subscription marked CANCELLED for user ${cId} due to Cashfree status: ${subStatus}`);
+        } else {
+          console.log(`⚠️ SUBSCRIPTION_STATUS_CHANGED: could not resolve user from customerId=${customerId} or email=${customerEmail}`);
         }
+      } else {
+        // e.g. ACTIVE, BANK_APPROVAL_PENDING — not actionable without a payment event
+        console.log(`ℹ️ SUBSCRIPTION_STATUS_CHANGED: status "${subStatus}" is not terminal — no DB change made.`);
       }
       return NextResponse.json({ message: `SUBSCRIPTION_STATUS_CHANGED processed: status=${subStatus}` });
     }
