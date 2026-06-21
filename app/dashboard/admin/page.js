@@ -13,7 +13,7 @@ export default function AdminDashboardPage() {
   const [isActioning, setIsActioning] = useState(false);
 
   // Cashfree Charge Simulator States
-  const [simulatorTab, setSimulatorTab] = useState('api'); // 'api' or 'webhook'
+  const [simulatorTab, setSimulatorTab] = useState('api'); // 'api', 'webhook', or 'sync'
   const [simSubId, setSimSubId] = useState('');
   const [simAmount, setSimAmount] = useState('500');
   const [isSimulating, setIsSimulating] = useState(false);
@@ -22,6 +22,10 @@ export default function AdminDashboardPage() {
   const [webSubId, setWebSubId] = useState('');
   const [webUserId, setWebUserId] = useState('');
   const [webAmount, setWebAmount] = useState('1');
+
+  // Live Sync States
+  const [syncSubId, setSyncSubId] = useState('');
+  const [syncUserId, setSyncUserId] = useState('');
 
   // Custom Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState({
@@ -162,6 +166,37 @@ export default function AdminDashboardPage() {
       await fetchCustomers(); // Reload customer list to show updated dates
     } catch (err) {
       showToast(`❌ Simulation failed: ${err.message}`, 'error');
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const handleLiveSync = async (e) => {
+    e.preventDefault();
+    if (!syncSubId.trim() || !syncUserId.trim()) {
+      showToast('❌ Subscription ID and User ID are required', 'error');
+      return;
+    }
+    setIsSimulating(true);
+    try {
+      const res = await fetch('/api/admin/sync-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscriptionId: syncSubId.trim(),
+          userId: syncUserId.trim()
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to sync subscription');
+      }
+      showToast(`🔄 ${data.message}`, 'success');
+      setSyncSubId('');
+      await fetchCustomers(); // Reload customer list to show updated dates
+    } catch (err) {
+      showToast(`❌ Sync failed: ${err.message}`, 'error');
     } finally {
       setIsSimulating(false);
     }
@@ -362,9 +397,24 @@ export default function AdminDashboardPage() {
             >
               🔄 Mock Webhook (Periodic & Sandbox Testing)
             </button>
+            <button
+              onClick={() => setSimulatorTab('sync')}
+              style={{
+                background: simulatorTab === 'sync' ? '#3b82f6' : 'transparent',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: 'var(--radius-md)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '0.85rem'
+              }}
+            >
+              🔄 Live API Sync (Any Plan)
+            </button>
           </div>
 
-          {simulatorTab === 'api' ? (
+          {simulatorTab === 'api' && (
             <div>
               <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '24px' }}>
                 Simulate a renewal charge directly via Cashfree's Sandbox PG. This calls the Cashfree subscriptions payment API (requires an On-Demand plan).
@@ -401,7 +451,9 @@ export default function AdminDashboardPage() {
                 </button>
               </form>
             </div>
-          ) : (
+          )}
+
+          {simulatorTab === 'webhook' && (
             <div>
               <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '24px' }}>
                 Simulate a mock <code>SUBSCRIPTION_PAYMENT_SUCCESS</code> webhook payload sent to your backend. Great for testing <strong>Periodic</strong> subscription renewals in Sandbox instantly.
@@ -446,6 +498,46 @@ export default function AdminDashboardPage() {
                   style={{ background: '#10b981', padding: '11px 24px', border: 'none', fontWeight: 600, color: 'white' }}
                 >
                   {isSimulating ? 'Processing...' : 'Simulate Webhook Success'}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {simulatorTab === 'sync' && (
+            <div>
+              <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '24px' }}>
+                Query Cashfree's live subscription details directly. If it is <strong>ACTIVE</strong>, this will synchronize the state in the local database, extend the period, and record the payment in the ledger.
+              </p>
+              <form onSubmit={handleLiveSync} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div style={{ flex: '1', minWidth: '200px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Subscription ID</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SUB_9_1781937792284"
+                    value={syncSubId}
+                    onChange={(e) => setSyncSubId(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', background: 'rgba(255,255,255,0.08)', color: 'white', outline: 'none' }}
+                  />
+                </div>
+                
+                <div style={{ width: '100px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>User ID</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 9"
+                    value={syncUserId}
+                    onChange={(e) => setSyncUserId(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', background: 'rgba(255,255,255,0.08)', color: 'white', outline: 'none' }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSimulating}
+                  className="btn btn-primary"
+                  style={{ background: '#3b82f6', padding: '11px 24px', border: 'none', fontWeight: 600, color: 'white' }}
+                >
+                  {isSimulating ? 'Syncing...' : 'Sync Subscription Status'}
                 </button>
               </form>
             </div>
@@ -529,6 +621,41 @@ export default function AdminDashboardPage() {
                         </td>
                         <td style={{ textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: '8px', justifyContent: 'flex-end' }}>
+                            <button
+                              onClick={() => {
+                                const subId = prompt(`Enter the Cashfree Subscription ID to sync for ${customer.name} (e.g. SUB_${customer.id}_xxxxxxxxxxxx):`);
+                                if (subId) {
+                                  (async () => {
+                                    setIsSimulating(true);
+                                    try {
+                                      const res = await fetch('/api/admin/sync-subscription', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          subscriptionId: subId.trim(),
+                                          userId: customer.id.toString()
+                                        })
+                                      });
+
+                                      const data = await res.json();
+                                      if (!res.ok) throw new Error(data.error || 'Failed to sync subscription');
+                                      showToast(`🔄 ${data.message}`, 'success');
+                                      await fetchCustomers();
+                                    } catch (err) {
+                                      showToast(`❌ Sync failed: ${err.message}`, 'error');
+                                    } finally {
+                                      setIsSimulating(false);
+                                    }
+                                  })();
+                                }
+                              }}
+                              className="btn btn-outline"
+                              style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#3b82f6', color: '#3b82f6' }}
+                              disabled={isSimulating}
+                            >
+                              Sync Plan
+                            </button>
+
                             {hasActiveSub && (
                               <button
                                 onClick={() => handleCancelPlan(customer.id, customer.name)}
