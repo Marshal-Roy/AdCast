@@ -46,10 +46,13 @@ async function initDb() {
         price_per_day DECIMAL(10,2) NOT NULL,
         current_period_start TIMESTAMP NOT NULL,
         current_period_end TIMESTAMP NOT NULL,
+        subscription_id VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ "subscriptions" table verified.');
+    // Run migration just in case the table already exists without the subscription_id column
+    await client.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS subscription_id VARCHAR(255);');
+    console.log('✅ "subscriptions" table verified (with subscription_id support).');
 
     // 3. Create Payments Table
     await client.query(`

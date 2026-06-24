@@ -212,9 +212,9 @@ export async function POST(request) {
 
       // Insert fresh active subscription record
       await query(
-        `INSERT INTO subscriptions (user_id, plan, status, price_per_day, current_period_start, current_period_end) 
-         VALUES ($1, $2, 'ACTIVE', $3, $4, $5)`,
-        [userId, plan, pricePerDay, periodStart, periodEnd]
+        `INSERT INTO subscriptions (user_id, plan, status, price_per_day, current_period_start, current_period_end, subscription_id) 
+         VALUES ($1, $2, 'ACTIVE', $3, $4, $5, $6)`,
+        [userId, plan, pricePerDay, periodStart, periodEnd, subscriptionId]
       );
 
       // ── PROVISION AD BOARDS (first activation only) ────────────────────────

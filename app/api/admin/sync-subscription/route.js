@@ -121,9 +121,9 @@ export async function POST(request) {
     }
 
     await query(
-      `INSERT INTO subscriptions (user_id, plan, status, price_per_day, current_period_start, current_period_end)
-       VALUES ($1, $2, 'ACTIVE', $3, $4, $5)`,
-      [userId, plan, pricePerDay, now, periodEnd]
+      `INSERT INTO subscriptions (user_id, plan, status, price_per_day, current_period_start, current_period_end, subscription_id)
+       VALUES ($1, $2, 'ACTIVE', $3, $4, $5, $6)`,
+      [userId, plan, pricePerDay, now, periodEnd, subscriptionId]
     );
 
     // Insert a payment record into the ledger

@@ -26,6 +26,20 @@ export async function POST(request) {
     }
     const user = userRes.rows[0];
 
+    // Check if the user already has an active, pending renewal, or approval-pending subscription
+    const existingSubRes = await query(
+      `SELECT id, plan, status FROM subscriptions 
+       WHERE user_id = $1 AND status IN ('ACTIVE', 'BANK_APPROVAL_PENDING', 'PENDING_RENEWAL')
+       ORDER BY id DESC LIMIT 1`,
+      [user.id]
+    );
+
+    if (existingSubRes.rows.length > 0) {
+      return NextResponse.json({ 
+        error: 'You already have an active or pending renewal subscription. Please wait for renewal or cancel it before purchasing a new plan.' 
+      }, { status: 400 });
+    }
+
     const { amount, targetPlan } = await request.json();
 
     if (!targetPlan || !['STARTER', 'PRO', 'TEST'].includes(targetPlan)) {

@@ -28,7 +28,7 @@ export async function GET() {
 
     // Fetch active subscription
     const subRes = await query(
-      `SELECT plan, status, price_per_day, current_period_start, current_period_end 
+      `SELECT plan, status, price_per_day, current_period_start, current_period_end, subscription_id 
        FROM subscriptions 
        WHERE user_id = $1 
        ORDER BY id DESC LIMIT 1`, 
@@ -36,16 +36,30 @@ export async function GET() {
     );
     let subscription = subRes.rows.length > 0 ? subRes.rows[0] : null;
 
-    // Real-time expiry check: if subscription period has ended, mark as EXPIRED
-    if (subscription && subscription.status === 'ACTIVE') {
+    // Real-time expiry check: if subscription period has ended, mark as PENDING_RENEWAL (during grace period) or EXPIRED
+    if (subscription && (subscription.status === 'ACTIVE' || subscription.status === 'PENDING_RENEWAL')) {
       const expiryTime = new Date(subscription.current_period_end).getTime();
-      const now = new Date().getTime();
+      const now = Date.now();
+      const graceMarginMs = subscription.plan === 'TEST' 
+        ? 12 * 60 * 60 * 1000 
+        : 72 * 60 * 60 * 1000;
+
       if (now > expiryTime) {
-        await query(
-          "UPDATE subscriptions SET status = 'EXPIRED' WHERE user_id = $1 AND status = 'ACTIVE'",
-          [user.id]
-        );
-        subscription.status = 'EXPIRED';
+        if (now <= expiryTime + graceMarginMs) {
+          if (subscription.status !== 'PENDING_RENEWAL') {
+            await query(
+              "UPDATE subscriptions SET status = 'PENDING_RENEWAL' WHERE user_id = $1 AND status = 'ACTIVE'",
+              [user.id]
+            );
+            subscription.status = 'PENDING_RENEWAL';
+          }
+        } else {
+          await query(
+            "UPDATE subscriptions SET status = 'EXPIRED' WHERE user_id = $1 AND status IN ('ACTIVE', 'PENDING_RENEWAL')",
+            [user.id]
+          );
+          subscription.status = 'EXPIRED';
+        }
       }
     }
 

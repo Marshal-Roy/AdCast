@@ -170,7 +170,7 @@ export default function DashboardPage() {
   }
 
   const { user, subscription } = userData || {};
-  const hasActivePlan = subscription && subscription.status === 'ACTIVE';
+  const hasActivePlan = subscription && (subscription.status === 'ACTIVE' || subscription.status === 'PENDING_RENEWAL');
 
   return (
     <div className="dashboard-grid">
@@ -210,13 +210,22 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {hasActivePlan && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '8px 16px', borderRadius: '30px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                <span style={{ width: '8px', height: '8px', background: 'var(--accent-green)', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.8s infinite' }}></span>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>Subscription Active</span>
+                <span style={{ 
+                  width: '8px', 
+                  height: '8px', 
+                  background: subscription.status === 'PENDING_RENEWAL' ? '#eab308' : 'var(--accent-green)', 
+                  borderRadius: '50%', 
+                  display: 'inline-block', 
+                  animation: 'pulse 1.8s infinite' 
+                }}></span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>
+                  {subscription.status === 'PENDING_RENEWAL' ? 'Renewal Processing' : 'Subscription Active'}
+                </span>
                 <style jsx global>{`
                   @keyframes pulse {
-                    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-                    70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+                    0% { box-shadow: 0 0 0 0 ${subscription.status === 'PENDING_RENEWAL' ? 'rgba(234, 179, 8, 0.7)' : 'rgba(16, 185, 129, 0.7)'}; }
+                    70% { box-shadow: 0 0 0 8px ${subscription.status === 'PENDING_RENEWAL' ? 'rgba(234, 179, 8, 0)' : 'rgba(16, 185, 129, 0)'}; }
+                    100% { box-shadow: 0 0 0 0 ${subscription.status === 'PENDING_RENEWAL' ? 'rgba(234, 179, 8, 0)' : 'rgba(16, 185, 129, 0)'}; }
                   }
                 `}</style>
               </div>
@@ -236,16 +245,34 @@ export default function DashboardPage() {
                 <span style={{ fontSize: '1.5rem', fontWeight: 800, color: hasActivePlan ? 'var(--primary)' : 'var(--text-muted)' }}>
                   {hasActivePlan ? `${subscription.plan} Plan` : 'No Active Plan'}
                 </span>
-                <span style={{ background: hasActivePlan ? 'var(--primary-light)' : '#fee2e2', color: hasActivePlan ? 'var(--primary)' : 'var(--accent-red)', padding: '2px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 600 }}>
-                  {hasActivePlan ? 'ACTIVE' : 'UNSUBSCRIBED'}
+                <span style={{ 
+                  background: subscription?.status === 'PENDING_RENEWAL' 
+                    ? '#fef9c3' 
+                    : (hasActivePlan ? 'var(--primary-light)' : '#fee2e2'), 
+                  color: subscription?.status === 'PENDING_RENEWAL' 
+                    ? '#854d0e' 
+                    : (hasActivePlan ? 'var(--primary)' : 'var(--accent-red)'), 
+                  padding: '2px 10px', 
+                  borderRadius: '12px', 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600 
+                }}>
+                  {subscription?.status === 'PENDING_RENEWAL' ? 'RENEWAL PROCESSING' : (hasActivePlan ? 'ACTIVE' : 'UNSUBSCRIBED')}
                 </span>
               </div>
               {hasActivePlan && (
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-                  Renews on: <strong>{subscription.plan === 'TEST' 
+                  {subscription?.status === 'PENDING_RENEWAL' ? 'Renewal started at: ' : 'Renews on: '}
+                  <strong>{subscription.plan === 'TEST' 
                     ? new Date(subscription.current_period_end).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
                     : new Date(subscription.current_period_end).toLocaleDateString(undefined, { dateStyle: 'long' })}</strong>
                 </p>
+              )}
+              {subscription?.status === 'PENDING_RENEWAL' && (
+                <div style={{ marginTop: '16px', padding: '12px 16px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '8px', color: '#b45309', fontSize: '0.85rem' }}>
+                  <span>⚠️</span>
+                  <span><strong>Automatic Renewal In-Progress:</strong> Your bank is processing the recurring charge. Your screen displays remain active. Please do not subscribe to another plan.</span>
+                </div>
               )}
             </div>
 

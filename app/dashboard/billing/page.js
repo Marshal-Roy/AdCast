@@ -219,28 +219,46 @@ export default function BillingPage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '1.5rem', fontWeight: 800, color: subscription?.status === 'ACTIVE' ? 'var(--primary)' : 'var(--text-muted)' }}>
-                  {subscription?.status === 'ACTIVE' ? `${subscription?.plan} Plan` : 'No Active Plan'}
+                <span style={{ fontSize: '1.5rem', fontWeight: 800, color: (subscription?.status === 'ACTIVE' || subscription?.status === 'PENDING_RENEWAL') ? 'var(--primary)' : 'var(--text-muted)' }}>
+                  {(subscription?.status === 'ACTIVE' || subscription?.status === 'PENDING_RENEWAL') ? `${subscription?.plan} Plan` : 'No Active Plan'}
                 </span>
-                <span style={{ background: subscription?.status === 'ACTIVE' ? 'var(--primary-light)' : '#fee2e2', color: subscription?.status === 'ACTIVE' ? 'var(--primary)' : 'var(--accent-red)', padding: '2px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 600 }}>
-                  {subscription?.status === 'ACTIVE' ? 'ACTIVE' : 'UNSUBSCRIBED'}
+                <span style={{ 
+                  background: subscription?.status === 'PENDING_RENEWAL' 
+                    ? '#fef9c3' 
+                    : (subscription?.status === 'ACTIVE' ? 'var(--primary-light)' : '#fee2e2'), 
+                  color: subscription?.status === 'PENDING_RENEWAL' 
+                    ? '#854d0e' 
+                    : (subscription?.status === 'ACTIVE' ? 'var(--primary)' : 'var(--accent-red)'), 
+                  padding: '2px 10px', 
+                  borderRadius: '12px', 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600 
+                }}>
+                  {subscription?.status === 'PENDING_RENEWAL' ? 'RENEWAL PROCESSING' : (subscription?.status === 'ACTIVE' ? 'ACTIVE' : 'UNSUBSCRIBED')}
                 </span>
               </div>
-              {subscription?.status === 'ACTIVE' && (
+              {(subscription?.status === 'ACTIVE' || subscription?.status === 'PENDING_RENEWAL') && (
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-                  Renews on: <strong>{new Date(subscription?.current_period_end).toLocaleDateString(undefined, { dateStyle: 'long' })}</strong>
+                  {subscription?.status === 'PENDING_RENEWAL' ? 'Renewal started at: ' : 'Renews on: '}
+                  <strong>{new Date(subscription?.current_period_end).toLocaleDateString(undefined, { dateStyle: 'long' })}</strong>
                 </p>
+              )}
+              {subscription?.status === 'PENDING_RENEWAL' && (
+                <div style={{ marginTop: '16px', padding: '12px 16px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '8px', color: '#b45309', fontSize: '0.85rem' }}>
+                  <span>⚠️</span>
+                  <span><strong>Automatic Renewal In-Progress:</strong> Your bank is processing the recurring charge. Your screen displays remain active. Please do not subscribe to another plan.</span>
+                </div>
               )}
             </div>
 
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              {subscription?.status === 'ACTIVE' ? (
+              {(subscription?.status === 'ACTIVE' || subscription?.status === 'PENDING_RENEWAL') ? (
                 <>
                   {subscription?.plan === 'STARTER' ? (
                     <button
                       onClick={() => handlePlanChangeInitiate('PRO')}
                       className="btn btn-primary"
-                      disabled={isCalculating || isCancelling}
+                      disabled={isCalculating || isCancelling || subscription?.status === 'PENDING_RENEWAL'}
                     >
                       {isCalculating ? 'Calculating...' : '🚀 Upgrade to Pro (₹1500/day)'}
                     </button>
@@ -248,7 +266,7 @@ export default function BillingPage() {
                     <button
                       onClick={() => handlePlanChangeInitiate('STARTER')}
                       className="btn btn-outline"
-                      disabled={isCalculating || isCancelling}
+                      disabled={isCalculating || isCancelling || subscription?.status === 'PENDING_RENEWAL'}
                     >
                       {isCalculating ? 'Calculating...' : '📉 Downgrade to Starter (₹500/day)'}
                     </button>
@@ -257,7 +275,7 @@ export default function BillingPage() {
                     onClick={handleCancelSubscription}
                     className="btn btn-outline"
                     style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}
-                    disabled={isCancelling}
+                    disabled={isCancelling || subscription?.status === 'PENDING_RENEWAL'}
                   >
                     {isCancelling ? 'Cancelling...' : 'Cancel Subscription'}
                   </button>
